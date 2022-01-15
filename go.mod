@@ -2,7 +2,10 @@ module github.com/alexisgeoffrey/aoe4elobot
 
 go 1.17
 
-require github.com/bwmarrin/discordgo v0.23.2
+require (
+	github.com/bwmarrin/discordgo v0.23.2
+	github.com/robfig/cron/v3 v3.0.1
+)
 
 require (
 	github.com/gorilla/websocket v1.4.0 // indirect
