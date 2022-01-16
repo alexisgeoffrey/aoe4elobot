@@ -11,6 +11,6 @@ Commands:
 
 Developed with the [DiscordGo](https://github.com/bwmarrin/discordgo) library.
 
-I also used these helpful tools:
+I also used these helpful tools from [Matt Holt](https://github.com/mholt):
 - https://mholt.github.io/json-to-go/
 - https://mholt.github.io/curl-to-go/
