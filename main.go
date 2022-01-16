@@ -150,20 +150,20 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	jsonBytes, _ := ioutil.ReadAll(jsonFile)
 	json.Unmarshal(jsonBytes, &usernames)
 
-	for _, username := range usernames.Usernames {
+	input := strings.SplitN(m.Content, " ", 2)
+	if len(input) <= 1 {
+		return "", errors.New("invalid input for username")
+	}
+	steamUsername := input[1]
+
+	for i, username := range usernames.Usernames {
 		if username.DiscordUserID == m.Author.ID {
-			input := strings.SplitAfterN(m.Content, " ", 2)
-			if len(input) <= 1 {
-				return "", errors.New("invalid input for username")
-			}
-			username.SteamUsername = strings.SplitAfterN(m.Content, " ", 2)[1]
+			usernames.Usernames[i].SteamUsername = steamUsername
 			jsonUsernames, _ := json.Marshal(usernames)
 			os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
-			return username.SteamUsername, nil
+			return usernames.Usernames[i].SteamUsername, nil
 		}
 	}
-
-	steamUsername := strings.SplitAfterN(m.Content, " ", 2)[1]
 
 	usernames.Usernames = append(
 		usernames.Usernames,
