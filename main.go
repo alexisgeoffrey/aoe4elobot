@@ -23,8 +23,8 @@ type Usernames struct {
 }
 
 type Username struct {
-	DiscordUsername string `json:"discord_username"`
-	SteamUsername   string `json:"steam_username"`
+	DiscordUserID string `json:"discord_user_id"`
+	SteamUsername string `json:"steam_username"`
 }
 
 type Payload struct {
@@ -123,7 +123,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			fmt.Println("error updating username: ", err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("@%s Username has been updated to %s.", m.Author.Username, name))
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s Username has been updated to %s.", m.Author.Mention(), name))
 	} else if strings.HasPrefix(m.Content, "!updateELO") {
 		err := updateELO(s)
 		if err != nil {
@@ -151,7 +151,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	json.Unmarshal(jsonBytes, &usernames)
 
 	for _, username := range usernames.Usernames {
-		if username.DiscordUsername == m.Author.Username {
+		if username.DiscordUserID == m.Author.ID {
 			input := strings.SplitAfterN(m.Content, " ", 2)
 			if len(input) <= 1 {
 				return "", errors.New("invalid input for username")
@@ -168,8 +168,8 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	usernames.Usernames = append(
 		usernames.Usernames,
 		Username{
-			DiscordUsername: m.Author.Username,
-			SteamUsername:   steamUsername,
+			DiscordUserID: m.Author.ID,
+			SteamUsername: steamUsername,
 		},
 	)
 	jsonUsernames, _ := json.Marshal(usernames)
@@ -180,6 +180,8 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 func updateELO(s *discordgo.Session) (err error) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
+
+	fmt.Println("Updating ELO...")
 
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
@@ -215,11 +217,11 @@ func updateELO(s *discordgo.Session) (err error) {
 	json.Unmarshal(jsonBytes, &usernames)
 
 	for _, username := range usernames.Usernames {
-		usernameMap[username.DiscordUsername] = username
+		usernameMap[username.DiscordUserID] = username
 	}
 
 	for _, member := range members { // update elo of each member
-		username, ok := usernameMap[member.User.Username]
+		username, ok := usernameMap[member.User.ID]
 		if !ok {
 			continue
 		}
@@ -242,6 +244,8 @@ func updateELO(s *discordgo.Session) (err error) {
 			}
 		}
 	}
+	fmt.Println("ELO Updated!")
+
 	return nil
 }
 
