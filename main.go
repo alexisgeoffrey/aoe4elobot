@@ -95,7 +95,7 @@ func main() {
 	dg.Identify.Intents = discordgo.IntentsGuildMessages
 
 	c := cron.New()
-	c.AddFunc("@midnight", func() { updateELO(dg) })
+	c.AddFunc("@midnight", func() { updateAllELO(dg) })
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -128,7 +128,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s Username has been updated to %s.", m.Author.Mention(), name))
 	} else if strings.HasPrefix(m.Content, "!updateELO") {
-		err := updateELO(s)
+		err := updateAllELO(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "ELO failed to update.")
 			fmt.Println("error updating elo:", err)
@@ -142,18 +142,12 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
-	jsonFile, err := openJsonFile()
+	jsonBytes, err := jsonFileToBytes()
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error opening json file:", err))
+		return "", errors.New(fmt.Sprint("error converting jsonfile to bytes:", err))
 	}
-	defer jsonFile.Close()
 
 	var usernames usernames
-
-	jsonBytes, err := ioutil.ReadAll(jsonFile)
-	if err != nil {
-		return "", errors.New(fmt.Sprint("error reading json file:", err))
-	}
 	json.Unmarshal(jsonBytes, &usernames)
 
 	input := strings.SplitN(m.Content, " ", 2)
@@ -189,22 +183,70 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	return steamUsername, nil
 }
 
-func updateELO(s *discordgo.Session) (err error) {
+func updateAllELO(s *discordgo.Session) (err error) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
 	fmt.Println("Updating ELO...")
 
+	err = removeExistingRoles(s)
+	if err != nil {
+		return errors.New(fmt.Sprint("error removing existing roles:", err))
+	}
+
+	jsonBytes, err := jsonFileToBytes()
+	if err != nil {
+		return errors.New(fmt.Sprint("error converting jsonfile to bytes:", err))
+	}
+
+	var usernames usernames
+	err = json.Unmarshal(jsonBytes, &usernames)
+	if err != nil {
+		return errors.New(fmt.Sprint("error unmarshaling json bytes:", err))
+	}
+
+	for _, username := range usernames.Usernames {
+		err = updateMemberELO(username, s, username.DiscordUserID)
+		if err != nil {
+			return errors.New(fmt.Sprint("error updating member ELO:", err))
+		}
+	}
+	fmt.Println("ELO Updated!")
+
+	return nil
+}
+
+func updateMemberELO(username username, s *discordgo.Session, memberID string) error {
+	eloMap, err := curlAPI(username.SteamUsername)
+	if err != nil {
+		return errors.New(fmt.Sprint("error sending request to api:", err))
+	}
+	for _, eloType := range eloTypes {
+		if elo, ok := eloMap[eloType]; ok {
+			role, err := s.GuildRoleCreate(guildID)
+			if err != nil {
+				return errors.New(fmt.Sprint("error creating guild role:", err))
+			}
+			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
+			if err != nil {
+				return errors.New(fmt.Sprint("error editing guild role:", err))
+			}
+			err = s.GuildMemberRoleAdd(guildID, memberID, role.ID)
+			if err != nil {
+				return errors.New(fmt.Sprint("error adding guild role:", err))
+			}
+		}
+	}
+	return nil
+}
+
+func removeExistingRoles(s *discordgo.Session) error {
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
 		return errors.New(fmt.Sprint("error getting roles:", err))
 	}
-	members, err := s.GuildMembers(guildID, "", 100)
-	if err != nil {
-		return errors.New(fmt.Sprint("error getting members:", err))
-	}
 
-	for _, role := range roles { // remove existing roles
+	for _, role := range roles {
 		if strings.Contains(role.Name, "ELO:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
@@ -212,57 +254,6 @@ func updateELO(s *discordgo.Session) (err error) {
 			}
 		}
 	}
-
-	jsonFile, err := openJsonFile()
-	if err != nil {
-		return errors.New(fmt.Sprint("error opening json file:", err))
-	}
-	defer jsonFile.Close()
-
-	var usernames usernames
-	usernameMap := make(map[string]username, len(usernames.Usernames))
-
-	jsonBytes, err := ioutil.ReadAll(jsonFile)
-	if err != nil {
-		return errors.New(fmt.Sprint("error reading json file:", err))
-	}
-	err = json.Unmarshal(jsonBytes, &usernames)
-	if err != nil {
-		return errors.New(fmt.Sprint("error unmarshaling json bytes:", err))
-	}
-
-	for _, username := range usernames.Usernames {
-		usernameMap[username.DiscordUserID] = username
-	}
-
-	for _, member := range members { // update elo of each member
-		username, ok := usernameMap[member.User.ID]
-		if !ok {
-			continue
-		}
-		eloMap, err := curlAPI(username.SteamUsername)
-		if err != nil {
-			return errors.New(fmt.Sprint("error sending request to api:", err))
-		}
-		for _, eloType := range eloTypes {
-			if elo, ok := eloMap[eloType]; ok {
-				role, err := s.GuildRoleCreate(guildID)
-				if err != nil {
-					return errors.New(fmt.Sprint("error creating guild role:", err))
-				}
-				role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
-				if err != nil {
-					return errors.New(fmt.Sprint("error editing guild role:", err))
-				}
-				err = s.GuildMemberRoleAdd(guildID, member.User.ID, role.ID)
-				if err != nil {
-					return errors.New(fmt.Sprint("error adding guild role:", err))
-				}
-			}
-		}
-	}
-	fmt.Println("ELO Updated!")
-
 	return nil
 }
 
@@ -334,4 +325,19 @@ func openJsonFile() (*os.File, error) {
 		return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
 	}
 	return jsonFile, nil
+}
+
+func jsonFileToBytes() ([]byte, error) {
+	jsonFile, err := openJsonFile()
+	if err != nil {
+		return nil, errors.New(fmt.Sprint("error opening json file:", err))
+	}
+	defer jsonFile.Close()
+
+	jsonBytes, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return nil, errors.New(fmt.Sprint("error reading json file:", err))
+	}
+
+	return jsonBytes, nil
 }
