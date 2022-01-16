@@ -64,8 +64,9 @@ func init() {
 }
 
 var (
-	token   string
-	guildID string
+	token     string
+	guildID   string
+	ELO_TYPES = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
 )
 
 const CONFIG_PATH string = "config/usernames.json"
@@ -243,18 +244,20 @@ func updateELO(s *discordgo.Session) (err error) {
 		if err != nil {
 			return errors.New(fmt.Sprint("error sending request to api:", err))
 		}
-		for eloType, elo := range eloMap {
-			role, err := s.GuildRoleCreate(guildID)
-			if err != nil {
-				return errors.New(fmt.Sprint("error creating guild role:", err))
-			}
-			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
-			if err != nil {
-				return errors.New(fmt.Sprint("error editing guild role:", err))
-			}
-			err = s.GuildMemberRoleAdd(guildID, member.User.ID, role.ID)
-			if err != nil {
-				return errors.New(fmt.Sprint("error adding guild role:", err))
+		for _, eloType := range ELO_TYPES {
+			if elo, ok := eloMap[eloType]; ok {
+				role, err := s.GuildRoleCreate(guildID)
+				if err != nil {
+					return errors.New(fmt.Sprint("error creating guild role:", err))
+				}
+				role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
+				if err != nil {
+					return errors.New(fmt.Sprint("error editing guild role:", err))
+				}
+				err = s.GuildMemberRoleAdd(guildID, member.User.ID, role.ID)
+				if err != nil {
+					return errors.New(fmt.Sprint("error adding guild role:", err))
+				}
 			}
 		}
 	}
@@ -265,7 +268,7 @@ func updateELO(s *discordgo.Session) (err error) {
 
 func curlAPI(username string) (map[string]string, error) {
 	respMap := make(map[string]string, 4)
-	for _, matchType := range []string{"1v1", "2v2", "3v3", "4v4"} {
+	for _, matchType := range ELO_TYPES {
 		data := Payload{
 			Region:       "7",
 			Versus:       "players",
