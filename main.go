@@ -19,16 +19,16 @@ import (
 )
 
 type (
-	Usernames struct {
-		Usernames []Username `json:"usernames"`
+	usernames struct {
+		Usernames []username `json:"usernames"`
 	}
 
-	Username struct {
+	username struct {
 		DiscordUserID string `json:"discord_user_id"`
 		SteamUsername string `json:"steam_username"`
 	}
 
-	Payload struct {
+	payload struct {
 		Region       string `json:"region"`
 		Versus       string `json:"versus"`
 		MatchType    string `json:"matchType"`
@@ -36,7 +36,7 @@ type (
 		SearchPlayer string `json:"searchPlayer"`
 	}
 
-	Response struct {
+	response struct {
 		Count int `json:"count"`
 		Items []struct {
 			GameID       string      `json:"gameId"`
@@ -64,12 +64,12 @@ func init() {
 }
 
 var (
-	token     string
-	guildID   string
-	ELO_TYPES = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
+	token    string
+	guildID  string
+	eloTypes = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
 )
 
-const CONFIG_PATH string = "config/usernames.json"
+const configPath string = "config/usernames.json"
 
 func main() {
 	if token == "" {
@@ -148,7 +148,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	}
 	defer jsonFile.Close()
 
-	var usernames Usernames
+	var usernames usernames
 
 	jsonBytes, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
@@ -169,14 +169,14 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 			if err != nil {
 				return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
 			}
-			os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
+			os.WriteFile(configPath, jsonUsernames, 0644)
 			return usernames.Usernames[i].SteamUsername, nil
 		}
 	}
 
 	usernames.Usernames = append(
 		usernames.Usernames,
-		Username{
+		username{
 			DiscordUserID: m.Author.ID,
 			SteamUsername: steamUsername,
 		},
@@ -185,7 +185,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	if err != nil {
 		return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
 	}
-	os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
+	os.WriteFile(configPath, jsonUsernames, 0644)
 	return steamUsername, nil
 }
 
@@ -219,8 +219,8 @@ func updateELO(s *discordgo.Session) (err error) {
 	}
 	defer jsonFile.Close()
 
-	var usernames Usernames
-	usernameMap := make(map[string]Username, len(usernames.Usernames))
+	var usernames usernames
+	usernameMap := make(map[string]username, len(usernames.Usernames))
 
 	jsonBytes, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
@@ -244,7 +244,7 @@ func updateELO(s *discordgo.Session) (err error) {
 		if err != nil {
 			return errors.New(fmt.Sprint("error sending request to api:", err))
 		}
-		for _, eloType := range ELO_TYPES {
+		for _, eloType := range eloTypes {
 			if elo, ok := eloMap[eloType]; ok {
 				role, err := s.GuildRoleCreate(guildID)
 				if err != nil {
@@ -268,8 +268,8 @@ func updateELO(s *discordgo.Session) (err error) {
 
 func curlAPI(username string) (map[string]string, error) {
 	respMap := make(map[string]string, 4)
-	for _, matchType := range ELO_TYPES {
-		data := Payload{
+	for _, matchType := range eloTypes {
+		data := payload{
 			Region:       "7",
 			Versus:       "players",
 			MatchType:    "unranked",
@@ -303,7 +303,7 @@ func curlAPI(username string) (map[string]string, error) {
 			continue
 		}
 
-		var respBodyJson Response
+		var respBodyJson response
 		err = json.Unmarshal(respBody, &respBodyJson)
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error unmarshaling JSON API response:", err))
@@ -318,15 +318,15 @@ func curlAPI(username string) (map[string]string, error) {
 }
 
 func openJsonFile() (*os.File, error) {
-	jsonFile, err := os.Open(CONFIG_PATH)
+	jsonFile, err := os.Open(configPath)
 	if errors.Is(err, os.ErrNotExist) {
 		fmt.Println("Config file does not exist. Creating file usernames.json")
-		jsonUsernames, err := json.Marshal(Usernames{Usernames: []Username{}})
+		jsonUsernames, err := json.Marshal(usernames{Usernames: []username{}})
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
 		}
-		os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
-		jsonFile, err = os.Open(CONFIG_PATH)
+		os.WriteFile(configPath, jsonUsernames, 0644)
+		jsonFile, err = os.Open(configPath)
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
 		}
