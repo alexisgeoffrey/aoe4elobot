@@ -66,6 +66,8 @@ var (
 	guildID string
 )
 
+const CONFIG_PATH string = "config/usernames.json"
+
 func main() {
 	if token == "" {
 		fmt.Println("No token provided.")
@@ -156,7 +158,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 			}
 			username.SteamUsername = strings.SplitAfterN(m.Content, " ", 2)[1]
 			jsonUsernames, _ := json.Marshal(usernames)
-			os.WriteFile("usernames.json", jsonUsernames, 0644)
+			os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
 			return username.SteamUsername, nil
 		}
 	}
@@ -171,7 +173,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 		},
 	)
 	jsonUsernames, _ := json.Marshal(usernames)
-	os.WriteFile("usernames.json", jsonUsernames, 0644)
+	os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
 	return steamUsername, nil
 }
 
@@ -295,15 +297,15 @@ func curlAPI(username string) (map[string]string, error) {
 }
 
 func openJsonFile() (*os.File, error) {
-	jsonFile, err := os.Open("usernames.json")
+	jsonFile, err := os.Open(CONFIG_PATH)
 	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("File does not exist. Creating file usernames.json")
+		fmt.Println("Config file does not exist. Creating file usernames.json")
 		jsonUsernames, err := json.Marshal(Usernames{Usernames: []Username{}})
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
 		}
-		os.WriteFile("usernames.json", jsonUsernames, 0644)
-		jsonFile, err = os.Open("usernames.json")
+		os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
+		jsonFile, err = os.Open(CONFIG_PATH)
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
 		}
