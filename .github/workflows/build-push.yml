@@ -1,4 +1,4 @@
-name: ci
+name: Docker Build & Push
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - 'main'
 
 jobs:
-  docker:
+  ci:
     runs-on: ubuntu-latest
     steps:
       -
@@ -23,7 +23,7 @@ jobs:
             ghcr.io/alexisgeoffrey/aoe4elobot
           # generate Docker tags based on the following events/attributes
           tags: |
-            type=schedule
+            type=raw,value=latest
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
