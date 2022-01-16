@@ -72,6 +72,11 @@ func main() {
 		return
 	}
 
+	if guildID == "" {
+		fmt.Println("No Guild ID provided.")
+		return
+	}
+
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
@@ -103,6 +108,7 @@ func main() {
 	<-sc
 
 	// Cleanly close down the Cron job and Discord session.
+	fmt.Println("Shutting down...")
 	c.Stop()
 	dg.Close()
 }
@@ -155,7 +161,18 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 		}
 	}
 
-	return "", nil
+	steamUsername := strings.SplitAfterN(m.Content, " ", 2)[1]
+
+	usernames.Usernames = append(
+		usernames.Usernames,
+		Username{
+			DiscordUsername: m.Author.Username,
+			SteamUsername:   steamUsername,
+		},
+	)
+	jsonUsernames, _ := json.Marshal(usernames)
+	os.WriteFile("usernames.json", jsonUsernames, 0644)
+	return steamUsername, nil
 }
 
 func updateELO(s *discordgo.Session) (err error) {
@@ -192,12 +209,12 @@ func updateELO(s *discordgo.Session) (err error) {
 	var usernames Usernames
 	usernameMap := make(map[string]Username, len(usernames.Usernames))
 
+	jsonBytes, _ := ioutil.ReadAll(jsonFile)
+	json.Unmarshal(jsonBytes, &usernames)
+
 	for _, username := range usernames.Usernames {
 		usernameMap[username.DiscordUsername] = username
 	}
-
-	jsonBytes, _ := ioutil.ReadAll(jsonFile)
-	json.Unmarshal(jsonBytes, &usernames)
 
 	for _, member := range members { // update elo of each member
 		username, ok := usernameMap[member.User.Username]
@@ -259,6 +276,10 @@ func curlAPI(username string) (map[string]string, error) {
 		}
 		resp.Body.Close()
 
+		if resp.StatusCode == 204 {
+			continue
+		}
+
 		var respBodyJson Response
 		err = json.Unmarshal(respBody, &respBodyJson)
 		if err != nil {
@@ -286,8 +307,7 @@ func openJsonFile() (*os.File, error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
 		}
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
 	}
 	return jsonFile, nil
