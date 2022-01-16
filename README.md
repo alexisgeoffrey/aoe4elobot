@@ -1,4 +1,6 @@
 # AOE 4 ELO Bot
+[![Docker Build & Push](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml)
+
 This is a Discord bot that automatically retrieves ELO ratings for Age of Empires 4 and gives users custom roles.
 Uses the public API for the Age of Empires Leaderboards from https://www.ageofempires.com/stats/ageiv/
 

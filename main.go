@@ -18,42 +18,44 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-type Usernames struct {
-	Usernames []Username `json:"usernames"`
-}
+type (
+	Usernames struct {
+		Usernames []Username `json:"usernames"`
+	}
 
-type Username struct {
-	DiscordUserID string `json:"discord_user_id"`
-	SteamUsername string `json:"steam_username"`
-}
+	Username struct {
+		DiscordUserID string `json:"discord_user_id"`
+		SteamUsername string `json:"steam_username"`
+	}
 
-type Payload struct {
-	Region       string `json:"region"`
-	Versus       string `json:"versus"`
-	MatchType    string `json:"matchType"`
-	TeamSize     string `json:"teamSize"`
-	SearchPlayer string `json:"searchPlayer"`
-}
+	Payload struct {
+		Region       string `json:"region"`
+		Versus       string `json:"versus"`
+		MatchType    string `json:"matchType"`
+		TeamSize     string `json:"teamSize"`
+		SearchPlayer string `json:"searchPlayer"`
+	}
 
-type Response struct {
-	Count int `json:"count"`
-	Items []struct {
-		GameID       string      `json:"gameId"`
-		UserID       string      `json:"userId"`
-		RlUserID     int         `json:"rlUserId"`
-		UserName     string      `json:"userName"`
-		AvatarURL    interface{} `json:"avatarUrl"`
-		PlayerNumber interface{} `json:"playerNumber"`
-		Elo          int         `json:"elo"`
-		EloRating    int         `json:"eloRating"`
-		Rank         int         `json:"rank"`
-		Region       string      `json:"region"`
-		Wins         int         `json:"wins"`
-		WinPercent   float64     `json:"winPercent"`
-		Losses       int         `json:"losses"`
-		WinStreak    int         `json:"winStreak"`
-	} `json:"items"`
-}
+	Response struct {
+		Count int `json:"count"`
+		Items []struct {
+			GameID       string      `json:"gameId"`
+			UserID       string      `json:"userId"`
+			RlUserID     int         `json:"rlUserId"`
+			UserName     string      `json:"userName"`
+			AvatarURL    interface{} `json:"avatarUrl"`
+			PlayerNumber interface{} `json:"playerNumber"`
+			Elo          int         `json:"elo"`
+			EloRating    int         `json:"eloRating"`
+			Rank         int         `json:"rank"`
+			Region       string      `json:"region"`
+			Wins         int         `json:"wins"`
+			WinPercent   float64     `json:"winPercent"`
+			Losses       int         `json:"losses"`
+			WinStreak    int         `json:"winStreak"`
+		} `json:"items"`
+	}
+)
 
 func init() {
 	flag.StringVar(&token, "t", "", "Bot Token")
@@ -82,7 +84,7 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error creating Discord session: ", err)
+		fmt.Println("Error creating Discord session:", err)
 		return
 	}
 
@@ -97,7 +99,7 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		fmt.Println("error opening connection to Discord:", err)
 		return
 	}
 
@@ -120,7 +122,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		name, err := saveToJSON(s, m)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Username failed to update.")
-			fmt.Println("error updating username: ", err)
+			fmt.Println("error updating username:", err)
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s Username has been updated to %s.", m.Author.Mention(), name))
@@ -128,7 +130,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		err := updateELO(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "ELO failed to update.")
-			fmt.Println("error updating elo: ", err)
+			fmt.Println("error updating elo:", err)
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, "ELO updated!")
@@ -141,13 +143,16 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 
 	jsonFile, err := openJsonFile()
 	if err != nil {
-		return "", err
+		return "", errors.New(fmt.Sprint("error opening json file:", err))
 	}
 	defer jsonFile.Close()
 
 	var usernames Usernames
 
-	jsonBytes, _ := ioutil.ReadAll(jsonFile)
+	jsonBytes, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return "", errors.New(fmt.Sprint("error reading json file:", err))
+	}
 	json.Unmarshal(jsonBytes, &usernames)
 
 	input := strings.SplitN(m.Content, " ", 2)
@@ -159,7 +164,10 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	for i, username := range usernames.Usernames {
 		if username.DiscordUserID == m.Author.ID {
 			usernames.Usernames[i].SteamUsername = steamUsername
-			jsonUsernames, _ := json.Marshal(usernames)
+			jsonUsernames, err := json.Marshal(usernames)
+			if err != nil {
+				return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
+			}
 			os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
 			return usernames.Usernames[i].SteamUsername, nil
 		}
@@ -172,7 +180,10 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 			SteamUsername: steamUsername,
 		},
 	)
-	jsonUsernames, _ := json.Marshal(usernames)
+	jsonUsernames, err := json.Marshal(usernames)
+	if err != nil {
+		return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
+	}
 	os.WriteFile(CONFIG_PATH, jsonUsernames, 0644)
 	return steamUsername, nil
 }
@@ -185,36 +196,39 @@ func updateELO(s *discordgo.Session) (err error) {
 
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
-		// fmt.Println("error getting roles: ", err)
-		return
+		return errors.New(fmt.Sprint("error getting roles:", err))
 	}
 	members, err := s.GuildMembers(guildID, "", 100)
 	if err != nil {
-		// fmt.Println("error getting members: ", err)
-		return
+		return errors.New(fmt.Sprint("error getting members:", err))
 	}
 
 	for _, role := range roles { // remove existing roles
 		if strings.Contains(role.Name, "ELO:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				fmt.Println("error removing role: ", err)
-				return
+				return errors.New(fmt.Sprint("error removing role:", err))
 			}
 		}
 	}
 
 	jsonFile, err := openJsonFile()
 	if err != nil {
-		return
+		return errors.New(fmt.Sprint("error opening json file:", err))
 	}
 	defer jsonFile.Close()
 
 	var usernames Usernames
 	usernameMap := make(map[string]Username, len(usernames.Usernames))
 
-	jsonBytes, _ := ioutil.ReadAll(jsonFile)
-	json.Unmarshal(jsonBytes, &usernames)
+	jsonBytes, err := ioutil.ReadAll(jsonFile)
+	if err != nil {
+		return errors.New(fmt.Sprint("error reading json file:", err))
+	}
+	err = json.Unmarshal(jsonBytes, &usernames)
+	if err != nil {
+		return errors.New(fmt.Sprint("error unmarshaling json bytes:", err))
+	}
 
 	for _, username := range usernames.Usernames {
 		usernameMap[username.DiscordUserID] = username
@@ -227,20 +241,20 @@ func updateELO(s *discordgo.Session) (err error) {
 		}
 		eloMap, err := curlAPI(username.SteamUsername)
 		if err != nil {
-			return err
+			return errors.New(fmt.Sprint("error sending request to api:", err))
 		}
 		for eloType, elo := range eloMap {
 			role, err := s.GuildRoleCreate(guildID)
 			if err != nil {
-				return err
+				return errors.New(fmt.Sprint("error creating guild role:", err))
 			}
 			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
 			if err != nil {
-				return err
+				return errors.New(fmt.Sprint("error editing guild role:", err))
 			}
 			err = s.GuildMemberRoleAdd(guildID, member.User.ID, role.ID)
 			if err != nil {
-				return err
+				return errors.New(fmt.Sprint("error adding guild role:", err))
 			}
 		}
 	}
@@ -261,24 +275,24 @@ func curlAPI(username string) (map[string]string, error) {
 		}
 		payloadBytes, err := json.Marshal(data)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprint("error marshaling json payload:", err))
 		}
 		body := bytes.NewReader(payloadBytes)
 
 		req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprint("error creating POST request:", err))
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprint("error sending POST to API:", err))
 		}
 
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprint("error reading API response:", err))
 		}
 		resp.Body.Close()
 
@@ -289,7 +303,7 @@ func curlAPI(username string) (map[string]string, error) {
 		var respBodyJson Response
 		err = json.Unmarshal(respBody, &respBodyJson)
 		if err != nil {
-			return nil, err
+			return nil, errors.New(fmt.Sprint("error unmarshaling JSON API response:", err))
 		}
 		if respBodyJson.Count < 1 {
 			continue
