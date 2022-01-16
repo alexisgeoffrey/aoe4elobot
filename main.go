@@ -142,9 +142,9 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
-	jsonBytes, err := jsonFileToBytes()
+	jsonBytes, err := configFileToBytes()
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error converting jsonfile to bytes:", err))
+		return "", errors.New(fmt.Sprint("error converting config file to bytes:", err))
 	}
 
 	var usernames usernames
@@ -194,9 +194,9 @@ func updateAllELO(s *discordgo.Session) (err error) {
 		return errors.New(fmt.Sprint("error removing existing roles:", err))
 	}
 
-	jsonBytes, err := jsonFileToBytes()
+	jsonBytes, err := configFileToBytes()
 	if err != nil {
-		return errors.New(fmt.Sprint("error converting jsonfile to bytes:", err))
+		return errors.New(fmt.Sprint("error converting config file to bytes:", err))
 	}
 
 	var usernames usernames
@@ -308,8 +308,8 @@ func curlAPI(username string) (map[string]string, error) {
 	return respMap, nil
 }
 
-func openJsonFile() (*os.File, error) {
-	jsonFile, err := os.Open(configPath)
+func openConfigFile() (*os.File, error) {
+	configFile, err := os.Open(configPath)
 	if errors.Is(err, os.ErrNotExist) {
 		fmt.Println("Config file does not exist. Creating file usernames.json")
 		jsonUsernames, err := json.Marshal(usernames{Usernames: []username{}})
@@ -317,24 +317,24 @@ func openJsonFile() (*os.File, error) {
 			return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
 		}
 		os.WriteFile(configPath, jsonUsernames, 0644)
-		jsonFile, err = os.Open(configPath)
+		configFile, err = os.Open(configPath)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
+			return nil, errors.New(fmt.Sprint("error opening config file: ", err))
 		}
 	} else if err != nil {
-		return nil, errors.New(fmt.Sprint("error opening jsonfile: ", err))
+		return nil, errors.New(fmt.Sprint("error opening config file: ", err))
 	}
-	return jsonFile, nil
+	return configFile, nil
 }
 
-func jsonFileToBytes() ([]byte, error) {
-	jsonFile, err := openJsonFile()
+func configFileToBytes() ([]byte, error) {
+	configFile, err := openConfigFile()
 	if err != nil {
 		return nil, errors.New(fmt.Sprint("error opening json file:", err))
 	}
-	defer jsonFile.Close()
+	defer configFile.Close()
 
-	jsonBytes, err := ioutil.ReadAll(jsonFile)
+	jsonBytes, err := ioutil.ReadAll(configFile)
 	if err != nil {
 		return nil, errors.New(fmt.Sprint("error reading json file:", err))
 	}
