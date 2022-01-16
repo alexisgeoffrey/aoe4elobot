@@ -1,6 +1,7 @@
 # AOE 4 ELO Bot
 [![Docker Build & Push](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml)
 [![CodeQL](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alexisgeoffrey/aoe4elobot)](https://goreportcard.com/report/github.com/alexisgeoffrey/aoe4elobot)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/alexisgeoffrey/aoe4elobot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/alexisgeoffrey/aoe4elobot/alerts/)
 
 A Discord bot that automatically retrieves ELO ratings for Age of Empires 4 and gives users custom roles.
