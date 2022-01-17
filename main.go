@@ -142,13 +142,13 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
-	jsonBytes, err := configFileToBytes()
+	configBytes, err := configFileToBytes()
 	if err != nil {
 		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
 	}
 
 	var usernames usernames
-	json.Unmarshal(jsonBytes, &usernames)
+	json.Unmarshal(configBytes, &usernames)
 
 	input := strings.SplitN(m.Content, " ", 2)
 	if len(input) <= 1 {
@@ -194,13 +194,13 @@ func updateAllELO(s *discordgo.Session) (err error) {
 		return errors.New(fmt.Sprint("error removing existing roles: ", err))
 	}
 
-	jsonBytes, err := configFileToBytes()
+	configBytes, err := configFileToBytes()
 	if err != nil {
 		return errors.New(fmt.Sprint("error converting config file to bytes: ", err))
 	}
 
 	var usernames usernames
-	err = json.Unmarshal(jsonBytes, &usernames)
+	err = json.Unmarshal(configBytes, &usernames)
 	if err != nil {
 		return errors.New(fmt.Sprint("error unmarshaling json bytes: ", err))
 	}
@@ -334,10 +334,10 @@ func configFileToBytes() ([]byte, error) {
 	}
 	defer configFile.Close()
 
-	jsonBytes, err := ioutil.ReadAll(configFile)
+	configBytes, err := ioutil.ReadAll(configFile)
 	if err != nil {
 		return nil, errors.New(fmt.Sprint("error reading json file: ", err))
 	}
 
-	return jsonBytes, nil
+	return configBytes, nil
 }
