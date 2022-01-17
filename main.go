@@ -95,7 +95,10 @@ func main() {
 	dg.Identify.Intents = discordgo.IntentsGuildMessages
 
 	c := cron.New()
-	c.AddFunc("@midnight", func() { updateAllELO(dg) })
+	c.AddFunc("@midnight", func() {
+		fmt.Println("Running scheduled ELO update.")
+		updateAllELO(dg)
+	})
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -120,7 +123,7 @@ func main() {
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if strings.HasPrefix(m.Content, "!setELOName") {
-		name, err := saveToJSON(s, m)
+		name, err := saveToConfig(s, m)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
 			fmt.Println("error updating username: ", err)
@@ -139,7 +142,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error) {
+func saveToConfig(s *discordgo.Session, m *discordgo.MessageCreate) (string, error) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
@@ -301,7 +304,7 @@ func curlAPI(username string) (map[string]string, error) {
 		var respBodyJson response
 		err = json.Unmarshal(respBody, &respBodyJson)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error unmarshaling JSON API response: ", err))
+			return nil, errors.New(fmt.Sprint("error unmarshaling json API response: ", err))
 		}
 		if respBodyJson.Count < 1 {
 			continue
