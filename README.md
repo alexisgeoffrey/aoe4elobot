@@ -1,8 +1,8 @@
 # AOE 4 ELO Bot
-[![Docker Build & Push](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml)
-[![CodeQL](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml)
+[![build](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/Docker%20Build%20&%20Push/main)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml)
+[![CodeQL](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/CodeQL/main?label=code%20QL)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexisgeoffrey/aoe4elobot)](https://goreportcard.com/report/github.com/alexisgeoffrey/aoe4elobot)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/alexisgeoffrey/aoe4elobot.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/alexisgeoffrey/aoe4elobot/alerts/)
+[![Docker Image Size](https://img.shields.io/docker/image-size/alexisgeoffrey/aoe4elobot?sort=date)](https://github.com/alexisgeoffrey/aoe4elobot/pkgs/container/aoe4elobot)
 
 A Discord bot that automatically retrieves ELO ratings for Age of Empires 4 and gives users custom roles.
 Uses the public API for the Age of Empires Leaderboards from https://www.ageofempires.com/stats/ageiv/
