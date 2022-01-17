@@ -96,8 +96,8 @@ func main() {
 
 	c := cron.New()
 	c.AddFunc("@midnight", func() {
-		fmt.Println("Running scheduled ELO update.")
-		updateAllELO(dg)
+		fmt.Println("Running scheduled Elo update.")
+		updateAllElo(dg)
 	})
 
 	// Open a websocket connection to Discord and begin listening.
@@ -110,7 +110,7 @@ func main() {
 	c.Start()
 
 	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("AOE4 ELO Bot is now running. Press CTRL-C to exit.")
+	fmt.Println("AOE4 Elo Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
@@ -122,7 +122,7 @@ func main() {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if strings.HasPrefix(m.Content, "!setELOName") {
+	if strings.HasPrefix(m.Content, "!setEloName") {
 		name, err := saveToConfig(s, m)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
@@ -131,14 +131,14 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
-	} else if strings.HasPrefix(m.Content, "!updateELO") {
-		err := updateAllELO(s)
+	} else if strings.HasPrefix(m.Content, "!updateElo") {
+		err := updateAllElo(s)
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "ELO failed to update.")
+			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
 			fmt.Println("error updating elo: ", err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, "ELO updated!")
+		s.ChannelMessageSend(m.ChannelID, "Elo updated!")
 	}
 }
 
@@ -189,11 +189,11 @@ func saveToConfig(s *discordgo.Session, m *discordgo.MessageCreate) (string, err
 	return steamUsername, nil
 }
 
-func updateAllELO(s *discordgo.Session) (err error) {
+func updateAllElo(s *discordgo.Session) (err error) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
-	fmt.Println("Updating ELO...")
+	fmt.Println("Updating Elo...")
 
 	err = removeExistingRoles(s)
 	if err != nil {
@@ -212,17 +212,17 @@ func updateAllELO(s *discordgo.Session) (err error) {
 	}
 
 	for _, username := range usernames.Usernames {
-		err = updateMemberELO(username, s, username.DiscordUserID)
+		err = updateMemberElo(username, s, username.DiscordUserID)
 		if err != nil {
-			return errors.New(fmt.Sprint("error updating member ELO: ", err))
+			return errors.New(fmt.Sprint("error updating member Elo: ", err))
 		}
 	}
-	fmt.Println("ELO Updated!")
+	fmt.Println("Elo Updated!")
 
 	return nil
 }
 
-func updateMemberELO(username username, s *discordgo.Session, memberID string) error {
+func updateMemberElo(username username, s *discordgo.Session, memberID string) error {
 	eloMap, err := curlAPI(username.SteamUsername)
 	if err != nil {
 		return errors.New(fmt.Sprint("error sending request to api: ", err))
@@ -233,7 +233,7 @@ func updateMemberELO(username username, s *discordgo.Session, memberID string) e
 			if err != nil {
 				return errors.New(fmt.Sprint("error creating guild role: ", err))
 			}
-			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
+			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s Elo: %s", eloType, elo), 1, false, 0, false)
 			if err != nil {
 				return errors.New(fmt.Sprint("error editing guild role: ", err))
 			}
@@ -253,7 +253,7 @@ func removeExistingRoles(s *discordgo.Session) error {
 	}
 
 	for _, role := range roles {
-		if strings.Contains(role.Name, "ELO:") {
+		if strings.Contains(role.Name, "Elo:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
 				return errors.New(fmt.Sprint("error removing role: ", err))
@@ -284,7 +284,7 @@ func curlAPI(username string) (map[string]string, error) {
 			return nil, errors.New(fmt.Sprint("error creating POST request: ", err))
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", "AOE 4 ELO Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
+		req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
