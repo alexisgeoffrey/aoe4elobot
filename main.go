@@ -85,7 +85,7 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Println("Error creating Discord session:", err)
+		fmt.Println("Error creating Discord session: ", err)
 		return
 	}
 
@@ -100,7 +100,7 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("error opening connection to Discord:", err)
+		fmt.Println("error opening connection to Discord: ", err)
 		return
 	}
 
@@ -122,16 +122,16 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if strings.HasPrefix(m.Content, "!setELOName") {
 		name, err := saveToJSON(s, m)
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Username failed to update.")
-			fmt.Println("error updating username:", err)
+			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
+			fmt.Println("error updating username: ", err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("%s Username has been updated to %s.", m.Author.Mention(), name))
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateELO") {
 		err := updateAllELO(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "ELO failed to update.")
-			fmt.Println("error updating elo:", err)
+			fmt.Println("error updating elo: ", err)
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, "ELO updated!")
@@ -144,7 +144,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 
 	jsonBytes, err := configFileToBytes()
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error converting config file to bytes:", err))
+		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
 	}
 
 	var usernames usernames
@@ -161,7 +161,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 			usernames.Usernames[i].SteamUsername = steamUsername
 			jsonUsernames, err := json.Marshal(usernames)
 			if err != nil {
-				return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
+				return "", errors.New(fmt.Sprint("error marshaling usernames: ", err))
 			}
 			os.WriteFile(configPath, jsonUsernames, 0644)
 			return usernames.Usernames[i].SteamUsername, nil
@@ -177,7 +177,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	)
 	jsonUsernames, err := json.Marshal(usernames)
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error marshaling usernames:", err))
+		return "", errors.New(fmt.Sprint("error marshaling usernames: ", err))
 	}
 	os.WriteFile(configPath, jsonUsernames, 0644)
 	return steamUsername, nil
@@ -191,24 +191,24 @@ func updateAllELO(s *discordgo.Session) (err error) {
 
 	err = removeExistingRoles(s)
 	if err != nil {
-		return errors.New(fmt.Sprint("error removing existing roles:", err))
+		return errors.New(fmt.Sprint("error removing existing roles: ", err))
 	}
 
 	jsonBytes, err := configFileToBytes()
 	if err != nil {
-		return errors.New(fmt.Sprint("error converting config file to bytes:", err))
+		return errors.New(fmt.Sprint("error converting config file to bytes: ", err))
 	}
 
 	var usernames usernames
 	err = json.Unmarshal(jsonBytes, &usernames)
 	if err != nil {
-		return errors.New(fmt.Sprint("error unmarshaling json bytes:", err))
+		return errors.New(fmt.Sprint("error unmarshaling json bytes: ", err))
 	}
 
 	for _, username := range usernames.Usernames {
 		err = updateMemberELO(username, s, username.DiscordUserID)
 		if err != nil {
-			return errors.New(fmt.Sprint("error updating member ELO:", err))
+			return errors.New(fmt.Sprint("error updating member ELO: ", err))
 		}
 	}
 	fmt.Println("ELO Updated!")
@@ -219,21 +219,21 @@ func updateAllELO(s *discordgo.Session) (err error) {
 func updateMemberELO(username username, s *discordgo.Session, memberID string) error {
 	eloMap, err := curlAPI(username.SteamUsername)
 	if err != nil {
-		return errors.New(fmt.Sprint("error sending request to api:", err))
+		return errors.New(fmt.Sprint("error sending request to api: ", err))
 	}
 	for _, eloType := range eloTypes {
 		if elo, ok := eloMap[eloType]; ok {
 			role, err := s.GuildRoleCreate(guildID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error creating guild role:", err))
+				return errors.New(fmt.Sprint("error creating guild role: ", err))
 			}
 			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s ELO: %s", eloType, elo), 1, false, 0, false)
 			if err != nil {
-				return errors.New(fmt.Sprint("error editing guild role:", err))
+				return errors.New(fmt.Sprint("error editing guild role: ", err))
 			}
 			err = s.GuildMemberRoleAdd(guildID, memberID, role.ID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error adding guild role:", err))
+				return errors.New(fmt.Sprint("error adding guild role: ", err))
 			}
 		}
 	}
@@ -243,14 +243,14 @@ func updateMemberELO(username username, s *discordgo.Session, memberID string) e
 func removeExistingRoles(s *discordgo.Session) error {
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
-		return errors.New(fmt.Sprint("error getting roles:", err))
+		return errors.New(fmt.Sprint("error getting roles: ", err))
 	}
 
 	for _, role := range roles {
 		if strings.Contains(role.Name, "ELO:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error removing role:", err))
+				return errors.New(fmt.Sprint("error removing role: ", err))
 			}
 		}
 	}
@@ -269,24 +269,24 @@ func curlAPI(username string) (map[string]string, error) {
 		}
 		payloadBytes, err := json.Marshal(data)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error marshaling json payload:", err))
+			return nil, errors.New(fmt.Sprint("error marshaling json payload: ", err))
 		}
 		body := bytes.NewReader(payloadBytes)
 
 		req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error creating POST request:", err))
+			return nil, errors.New(fmt.Sprint("error creating POST request: ", err))
 		}
 		req.Header.Set("Content-Type", "application/json")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error sending POST to API:", err))
+			return nil, errors.New(fmt.Sprint("error sending POST to API: ", err))
 		}
 
 		respBody, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error reading API response:", err))
+			return nil, errors.New(fmt.Sprint("error reading API response: ", err))
 		}
 		resp.Body.Close()
 
@@ -297,7 +297,7 @@ func curlAPI(username string) (map[string]string, error) {
 		var respBodyJson response
 		err = json.Unmarshal(respBody, &respBodyJson)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error unmarshaling JSON API response:", err))
+			return nil, errors.New(fmt.Sprint("error unmarshaling JSON API response: ", err))
 		}
 		if respBodyJson.Count < 1 {
 			continue
@@ -330,13 +330,13 @@ func openConfigFile() (*os.File, error) {
 func configFileToBytes() ([]byte, error) {
 	configFile, err := openConfigFile()
 	if err != nil {
-		return nil, errors.New(fmt.Sprint("error opening json file:", err))
+		return nil, errors.New(fmt.Sprint("error opening json file: ", err))
 	}
 	defer configFile.Close()
 
 	jsonBytes, err := ioutil.ReadAll(configFile)
 	if err != nil {
-		return nil, errors.New(fmt.Sprint("error reading json file:", err))
+		return nil, errors.New(fmt.Sprint("error reading json file: ", err))
 	}
 
 	return jsonBytes, nil
