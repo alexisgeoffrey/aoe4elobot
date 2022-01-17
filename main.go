@@ -126,6 +126,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			fmt.Println("error updating username: ", err)
 			return
 		}
+		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateELO") {
 		err := updateAllELO(s)
@@ -156,6 +157,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 	}
 	steamUsername := input[1]
 
+	// check if user is already in config file, if so, modify that entry
 	for i, username := range usernames.Usernames {
 		if username.DiscordUserID == m.Author.ID {
 			usernames.Usernames[i].SteamUsername = steamUsername
@@ -168,6 +170,7 @@ func saveToJSON(s *discordgo.Session, m *discordgo.MessageCreate) (string, error
 		}
 	}
 
+	// if user is not in config file, create a new entry
 	usernames.Usernames = append(
 		usernames.Usernames,
 		username{
@@ -278,6 +281,7 @@ func curlAPI(username string) (map[string]string, error) {
 			return nil, errors.New(fmt.Sprint("error creating POST request: ", err))
 		}
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "AOE 4 ELO Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -310,19 +314,21 @@ func curlAPI(username string) (map[string]string, error) {
 
 func openConfigFile() (*os.File, error) {
 	configFile, err := os.Open(configPath)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("Config file does not exist. Creating file usernames.json")
-		jsonUsernames, err := json.Marshal(usernames{Usernames: []username{}})
-		if err != nil {
-			return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
-		}
-		os.WriteFile(configPath, jsonUsernames, 0644)
-		configFile, err = os.Open(configPath)
-		if err != nil {
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			fmt.Println("Config file does not exist. Creating file usernames.json")
+			jsonUsernames, err := json.Marshal(usernames{Usernames: []username{}})
+			if err != nil {
+				return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
+			}
+			os.WriteFile(configPath, jsonUsernames, 0644)
+			configFile, err = os.Open(configPath)
+			if err != nil {
+				return nil, errors.New(fmt.Sprint("error opening config file: ", err))
+			}
+		} else {
 			return nil, errors.New(fmt.Sprint("error opening config file: ", err))
 		}
-	} else if err != nil {
-		return nil, errors.New(fmt.Sprint("error opening config file: ", err))
 	}
 	return configFile, nil
 }
