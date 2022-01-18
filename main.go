@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -71,9 +72,10 @@ func init() {
 }
 
 var (
-	token    string
-	guildID  string
-	eloTypes = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
+	token      string
+	guildID    string
+	eloTypes   = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
+	eventMutex sync.Mutex
 )
 
 const configPath string = "config/config.json"
@@ -99,7 +101,7 @@ func main() {
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
 
-	dg.Identify.Intents = discordgo.IntentsGuildMessages
+	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages
 
 	c := cron.New()
 	c.AddFunc("@midnight", func() {
@@ -129,8 +131,16 @@ func main() {
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Ignore all messages created by the bot itself
+	if m.Author.ID == s.State.User.ID {
+		return
+	}
+
+	eventMutex.Lock()
+	defer eventMutex.Unlock()
+
 	if strings.HasPrefix(m.Content, "!setEloName") {
-		name, err := saveToConfig(s, m)
+		name, err := saveToConfig(m)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
 			fmt.Println("error updating username: ", err)
@@ -150,10 +160,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
-func saveToConfig(s *discordgo.Session, m *discordgo.MessageCreate) (string, error) {
-	s.RWMutex.Lock()
-	defer s.RWMutex.Unlock()
-
+func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	configBytes, err := configFileToBytes()
 	if err != nil {
 		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
@@ -198,9 +205,6 @@ func saveToConfig(s *discordgo.Session, m *discordgo.MessageCreate) (string, err
 }
 
 func updateAllElo(s *discordgo.Session) (string, error) {
-	s.RWMutex.Lock()
-	defer s.RWMutex.Unlock()
-
 	fmt.Println("Updating Elo...")
 
 	configBytes, err := configFileToBytes()
@@ -216,7 +220,7 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 
 	allMemberOldElo := make(map[string]userElo)
 	for _, user := range users.Users {
-		memberElo, err := getMemberElo(s, user)
+		memberElo, err := getMemberElo(s.State, user)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error retrieving existing member roles: ", err))
 		}
@@ -230,14 +234,14 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 
 	allMemberNewElo := make(map[string]userElo)
 	for _, user := range users.Users {
-		memberElo, err := updateMemberElo(user, s)
+		memberElo, err := updateMemberElo(s, user)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error updating member Elo: ", err))
 		}
 		allMemberNewElo[user.DiscordUserID] = memberElo
 	}
 
-	updateMessage, err := formatUpdateMessage(s, allMemberOldElo, allMemberNewElo)
+	updateMessage, err := formatUpdateMessage(s.State, allMemberOldElo, allMemberNewElo)
 	if err != nil {
 		return "", errors.New(fmt.Sprint("error formatting update message: ", err))
 	}
@@ -247,7 +251,7 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 	return updateMessage, nil
 }
 
-func formatUpdateMessage(s *discordgo.Session, oldElo map[string]userElo, newElo map[string]userElo) (string, error) {
+func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo map[string]userElo) (string, error) {
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
@@ -255,7 +259,7 @@ func formatUpdateMessage(s *discordgo.Session, oldElo map[string]userElo, newElo
 		if (userElo{} == oldMemberElo) {
 			continue
 		}
-		member, err := s.GuildMember(guildID, userID)
+		member, err := st.Member(guildID, userID)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
 		}
@@ -285,7 +289,7 @@ func formatUpdateMessage(s *discordgo.Session, oldElo map[string]userElo, newElo
 	return updateMessage.String(), nil
 }
 
-func updateMemberElo(u user, s *discordgo.Session) (userElo, error) {
+func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 	eloMap, err := queryElo(u.SteamUsername)
 	if err != nil {
 		return userElo{}, errors.New(fmt.Sprint("error sending request to api: ", err))
@@ -323,14 +327,17 @@ func updateMemberElo(u user, s *discordgo.Session) (userElo, error) {
 	return userElo, nil
 }
 
-func getMemberElo(s *discordgo.Session, u user) (userElo, error) {
-	member, err := s.GuildMember(guildID, u.DiscordUserID)
+func getMemberElo(st *discordgo.State, u user) (userElo, error) {
+	member, err := st.Member(guildID, u.DiscordUserID)
 	if err != nil {
 		return userElo{}, errors.New(fmt.Sprint("error retrieving member: ", err))
 	}
 	var memberElo userElo
-	for _, role := range member.Roles {
-		role, err := s.State.Role(guildID, role)
+	for _, roleID := range member.Roles {
+		role, err := st.Role(guildID, roleID)
+		if err != nil {
+			return userElo{}, errors.New(fmt.Sprint("error retrieving role: ", err))
+		}
 		roleName := role.Name
 		if err != nil {
 			return userElo{}, errors.New(fmt.Sprint("error getting role info: ", err))
@@ -350,10 +357,11 @@ func getMemberElo(s *discordgo.Session, u user) (userElo, error) {
 }
 
 func removeAllExistingRoles(s *discordgo.Session) error {
-	roles, err := s.GuildRoles(guildID)
+	guild, err := s.State.Guild(guildID)
 	if err != nil {
-		return errors.New(fmt.Sprint("error getting roles: ", err))
+		return errors.New(fmt.Sprint("error getting guild from state: ", err))
 	}
+	roles := guild.Roles
 
 	for _, role := range roles {
 		if strings.Contains(role.Name, "Elo:") {
