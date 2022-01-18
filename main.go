@@ -136,10 +136,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	eventMutex.Lock()
-	defer eventMutex.Unlock()
-
 	if strings.HasPrefix(m.Content, "!setEloName") {
+		eventMutex.Lock()
+		defer eventMutex.Unlock()
+
 		name, err := saveToConfig(m)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
@@ -149,6 +149,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
+		eventMutex.Lock()
+		defer eventMutex.Unlock()
+
 		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
 		updateMessage, err := updateAllElo(s)
 		if err != nil {
@@ -255,14 +258,19 @@ func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo 
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
+	st.RLock()
+	defer st.RUnlock()
+
 	for userID, oldMemberElo := range oldElo {
 		if newElo[userID] == oldMemberElo {
 			continue
 		}
+
 		member, err := st.Member(guildID, userID)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
 		}
+
 		var memberName string
 		// check if nickname is assigned
 		if member.Nick != "" {
@@ -270,6 +278,7 @@ func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo 
 		} else {
 			memberName = member.User.Username
 		}
+
 		updateMessage.WriteString(fmt.Sprint(memberName, ":\n"))
 		if oldElo, newElo := oldMemberElo.Elo1v1, newElo[userID].Elo1v1; oldElo != "" && oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
@@ -328,10 +337,14 @@ func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 }
 
 func getMemberElo(st *discordgo.State, u user) (userElo, error) {
+	st.RLock()
+	defer st.RUnlock()
+
 	member, err := st.Member(guildID, u.DiscordUserID)
 	if err != nil {
 		return userElo{}, errors.New(fmt.Sprint("error retrieving member: ", err))
 	}
+
 	var memberElo userElo
 	for _, roleID := range member.Roles {
 		role, err := st.Role(guildID, roleID)
@@ -339,10 +352,12 @@ func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 			fmt.Println("error retrieving role ", roleID, " for member ", member.User.Username, ": ", err)
 			continue
 		}
+
 		roleName := role.Name
 		if err != nil {
 			return userElo{}, errors.New(fmt.Sprint("error getting role info: ", err))
 		}
+
 		if strings.Contains(roleName, "1v1 Elo:") {
 			memberElo.Elo1v1 = strings.Split(roleName, " ")[2]
 		} else if strings.Contains(roleName, "2v2 Elo:") {
@@ -358,6 +373,9 @@ func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 }
 
 func removeAllExistingRoles(s *discordgo.Session) error {
+	s.State.RLock()
+	defer s.State.RUnlock()
+
 	guild, err := s.State.Guild(guildID)
 	if err != nil {
 		return errors.New(fmt.Sprint("error getting guild from state: ", err))
@@ -367,11 +385,12 @@ func removeAllExistingRoles(s *discordgo.Session) error {
 		if strings.Contains(role.Name, "Elo:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				fmt.Println("error removing role ", role.ID, ": ", err)
+				fmt.Println("error removing role ", role.ID+":", err)
 				continue
 			}
 		}
 	}
+
 	return nil
 }
 
