@@ -248,7 +248,7 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 
 func formatUpdateMessage(s *discordgo.Session, oldElo map[string]userElo, newElo map[string]userElo) (string, error) {
 	var updateMessage strings.Builder
-	updateMessage.WriteString("Elo updated:\n\n")
+	updateMessage.WriteString("Elo updated!\n\n")
 
 	for userID, oldMemberElo := range oldElo {
 		if (userElo{} == oldMemberElo) {
