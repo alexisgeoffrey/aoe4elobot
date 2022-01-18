@@ -3,7 +3,7 @@ module github.com/alexisgeoffrey/aoe4elobot
 go 1.17
 
 require (
-	github.com/bwmarrin/discordgo v0.23.2
+	github.com/bwmarrin/discordgo v0.23.3-0.20211228023845-29269347e820
 	github.com/robfig/cron/v3 v3.0.1
 )
 

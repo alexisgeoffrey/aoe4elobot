@@ -362,13 +362,12 @@ func removeAllExistingRoles(s *discordgo.Session) error {
 	if err != nil {
 		return errors.New(fmt.Sprint("error getting guild from state: ", err))
 	}
-	roles := guild.Roles
 
-	for _, role := range roles {
+	for _, role := range guild.Roles {
 		if strings.Contains(role.Name, "Elo:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				fmt.Println("error removing role: ", err)
+				fmt.Println("error removing role ", role.ID, ": ", err)
 				continue
 			}
 		}
