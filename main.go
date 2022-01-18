@@ -28,6 +28,13 @@ type (
 		SteamUsername string `json:"steam_username"`
 	}
 
+	userElo struct {
+		Elo1v1 string
+		Elo2v2 string
+		Elo3v3 string
+		Elo4v4 string
+	}
+
 	payload struct {
 		Region       string `json:"region"`
 		Versus       string `json:"versus"`
@@ -132,13 +139,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
-		err := updateAllElo(s)
+		updateMessage, err := updateAllElo(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
 			fmt.Println("error updating elo: ", err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, "Elo updated!")
+		s.ChannelMessageSend(m.ChannelID, updateMessage)
 	}
 }
 
@@ -189,64 +196,154 @@ func saveToConfig(s *discordgo.Session, m *discordgo.MessageCreate) (string, err
 	return steamUsername, nil
 }
 
-func updateAllElo(s *discordgo.Session) (err error) {
+func updateAllElo(s *discordgo.Session) (string, error) {
 	s.RWMutex.Lock()
 	defer s.RWMutex.Unlock()
 
 	fmt.Println("Updating Elo...")
 
-	err = removeExistingRoles(s)
-	if err != nil {
-		return errors.New(fmt.Sprint("error removing existing roles: ", err))
-	}
-
 	configBytes, err := configFileToBytes()
 	if err != nil {
-		return errors.New(fmt.Sprint("error converting config file to bytes: ", err))
+		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
 	}
 
 	var users users
 	err = json.Unmarshal(configBytes, &users)
 	if err != nil {
-		return errors.New(fmt.Sprint("error unmarshaling json bytes: ", err))
+		return "", errors.New(fmt.Sprint("error unmarshaling json bytes: ", err))
 	}
 
+	allMemberOldElo := make(map[string]userElo)
 	for _, user := range users.Users {
-		err = updateMemberElo(user, s, user.DiscordUserID)
+		memberElo, err := getMemberElo(s, user)
 		if err != nil {
-			return errors.New(fmt.Sprint("error updating member Elo: ", err))
+			return "", errors.New(fmt.Sprint("error retrieving existing member roles: ", err))
 		}
+		allMemberOldElo[user.DiscordUserID] = memberElo
 	}
-	fmt.Println("Elo Updated!")
 
-	return nil
+	err = removeAllExistingRoles(s)
+	if err != nil {
+		return "", errors.New(fmt.Sprint("error removing existing roles: ", err))
+	}
+
+	allMemberNewElo := make(map[string]userElo)
+	for _, user := range users.Users {
+		memberElo, err := updateMemberElo(user, s)
+		if err != nil {
+			return "", errors.New(fmt.Sprint("error updating member Elo: ", err))
+		}
+		allMemberNewElo[user.DiscordUserID] = memberElo
+	}
+
+	updateMessage, err := formatUpdateMessage(s, allMemberOldElo, allMemberNewElo)
+	if err != nil {
+		return "", errors.New(fmt.Sprint("error formatting update message: ", err))
+	}
+
+	fmt.Println(updateMessage)
+
+	return updateMessage, nil
 }
 
-func updateMemberElo(u user, s *discordgo.Session, memberID string) error {
-	eloMap, err := curlAPI(u.SteamUsername)
+func formatUpdateMessage(s *discordgo.Session, oldElo map[string]userElo, newElo map[string]userElo) (string, error) {
+	var updateMessage strings.Builder
+	updateMessage.WriteString("Elo updated:\n\n")
+
+	for userID, oldMemberElo := range oldElo {
+		if (userElo{} == oldMemberElo) {
+			continue
+		}
+		member, err := s.GuildMember(guildID, userID)
+		if err != nil {
+			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
+		}
+		var memberName string
+		// check if nickname is assigned
+		if member.Nick != "" {
+			memberName = member.Nick
+		} else {
+			memberName = member.User.Username
+		}
+		updateMessage.WriteString(fmt.Sprint(memberName, ":\n"))
+		if oldElo, newElo := oldMemberElo.Elo1v1, newElo[userID].Elo1v1; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := oldMemberElo.Elo2v2, newElo[userID].Elo2v2; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("2v2 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := oldMemberElo.Elo3v3, newElo[userID].Elo3v3; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("3v3 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := oldMemberElo.Elo4v4, newElo[userID].Elo4v4; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
+		}
+		updateMessage.WriteString("\n")
+	}
+
+	return updateMessage.String(), nil
+}
+
+func updateMemberElo(u user, s *discordgo.Session) (userElo, error) {
+	eloMap, err := queryElo(u.SteamUsername)
 	if err != nil {
-		return errors.New(fmt.Sprint("error sending request to api: ", err))
+		return userElo{}, errors.New(fmt.Sprint("error sending request to api: ", err))
 	}
 	for _, eloType := range eloTypes {
 		if elo, ok := eloMap[eloType]; ok {
 			role, err := s.GuildRoleCreate(guildID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error creating guild role: ", err))
+				return userElo{}, errors.New(fmt.Sprint("error creating guild role: ", err))
 			}
 			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s Elo: %s", eloType, elo), 1, false, 0, false)
 			if err != nil {
-				return errors.New(fmt.Sprint("error editing guild role: ", err))
+				return userElo{}, errors.New(fmt.Sprint("error editing guild role: ", err))
 			}
-			err = s.GuildMemberRoleAdd(guildID, memberID, role.ID)
+			err = s.GuildMemberRoleAdd(guildID, u.DiscordUserID, role.ID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error adding guild role: ", err))
+				return userElo{}, errors.New(fmt.Sprint("error adding guild role: ", err))
 			}
 		}
 	}
-	return nil
+	// convert elo map to userElo struct
+	var userElo userElo
+	if elo, ok := eloMap["1v1"]; ok {
+		userElo.Elo1v1 = elo
+	}
+	if elo, ok := eloMap["2v2"]; ok {
+		userElo.Elo2v2 = elo
+	}
+	if elo, ok := eloMap["3v3"]; ok {
+		userElo.Elo3v3 = elo
+	}
+	if elo, ok := eloMap["4v4"]; ok {
+		userElo.Elo4v4 = elo
+	}
+	return userElo, nil
 }
 
-func removeExistingRoles(s *discordgo.Session) error {
+func getMemberElo(s *discordgo.Session, u user) (userElo, error) {
+	member, err := s.GuildMember(guildID, u.DiscordUserID)
+	if err != nil {
+		return userElo{}, errors.New(fmt.Sprint("error retrieving member: ", err))
+	}
+	var memberElo userElo
+	for _, role := range member.Roles {
+		if strings.Contains(role, "1v1 Elo:") {
+			memberElo.Elo1v1 = strings.Split(role, " ")[2]
+		} else if strings.Contains(role, "2v2 Elo:") {
+			memberElo.Elo2v2 = strings.Split(role, " ")[2]
+		} else if strings.Contains(role, "3v3 Elo:") {
+			memberElo.Elo3v3 = strings.Split(role, " ")[2]
+		} else if strings.Contains(role, "4v4 Elo:") {
+			memberElo.Elo4v4 = strings.Split(role, " ")[2]
+		}
+	}
+
+	return memberElo, nil
+}
+
+func removeAllExistingRoles(s *discordgo.Session) error {
 	roles, err := s.GuildRoles(guildID)
 	if err != nil {
 		return errors.New(fmt.Sprint("error getting roles: ", err))
@@ -263,7 +360,7 @@ func removeExistingRoles(s *discordgo.Session) error {
 	return nil
 }
 
-func curlAPI(username string) (map[string]string, error) {
+func queryElo(username string) (map[string]string, error) {
 	respMap := make(map[string]string, 4)
 	for _, matchType := range eloTypes {
 		data := payload{
