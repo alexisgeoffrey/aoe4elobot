@@ -333,7 +333,8 @@ func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 	for _, roleID := range member.Roles {
 		role, err := st.Role(guildID, roleID)
 		if err != nil {
-			return userElo{}, errors.New(fmt.Sprint("error retrieving role ", roleID, " for member ", member.User.Username, ": ", err))
+			fmt.Println("error retrieving role ", roleID, " for member ", member.User.Username, ": ", err)
+			continue
 		}
 		roleName := role.Name
 		if err != nil {
@@ -364,7 +365,8 @@ func removeAllExistingRoles(s *discordgo.Session) error {
 		if strings.Contains(role.Name, "Elo:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				return errors.New(fmt.Sprint("error removing role: ", err))
+				fmt.Println("error removing role: ", err)
+				continue
 			}
 		}
 	}
