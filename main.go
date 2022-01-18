@@ -6,7 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -422,7 +422,7 @@ func queryElo(username string) (map[string]string, error) {
 			return nil, errors.New(fmt.Sprint("error sending POST to API: ", err))
 		}
 
-		respBody, err := ioutil.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, errors.New(fmt.Sprint("error reading API response: ", err))
 		}
@@ -474,7 +474,7 @@ func configFileToBytes() ([]byte, error) {
 	}
 	defer configFile.Close()
 
-	configBytes, err := ioutil.ReadAll(configFile)
+	configBytes, err := io.ReadAll(configFile)
 	if err != nil {
 		return nil, errors.New(fmt.Sprint("error reading json file: ", err))
 	}
