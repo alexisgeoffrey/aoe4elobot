@@ -256,9 +256,6 @@ func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo 
 	updateMessage.WriteString("Elo updated!\n\n")
 
 	for userID, oldMemberElo := range oldElo {
-		if (userElo{} == oldMemberElo) {
-			continue
-		}
 		member, err := st.Member(guildID, userID)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
@@ -336,7 +333,7 @@ func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 	for _, roleID := range member.Roles {
 		role, err := st.Role(guildID, roleID)
 		if err != nil {
-			return userElo{}, errors.New(fmt.Sprint("error retrieving role: ", err))
+			return userElo{}, errors.New(fmt.Sprint("error retrieving role ", roleID, " for member ", member.User.Username, ": ", err))
 		}
 		roleName := role.Name
 		if err != nil {
