@@ -256,6 +256,9 @@ func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo 
 	updateMessage.WriteString("Elo updated!\n\n")
 
 	for userID, oldMemberElo := range oldElo {
+		if newElo[userID] == oldMemberElo {
+			continue
+		}
 		member, err := st.Member(guildID, userID)
 		if err != nil {
 			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
