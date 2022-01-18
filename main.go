@@ -139,6 +139,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
+		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
 		updateMessage, err := updateAllElo(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
@@ -329,14 +330,19 @@ func getMemberElo(s *discordgo.Session, u user) (userElo, error) {
 	}
 	var memberElo userElo
 	for _, role := range member.Roles {
-		if strings.Contains(role, "1v1 Elo:") {
-			memberElo.Elo1v1 = strings.Split(role, " ")[2]
-		} else if strings.Contains(role, "2v2 Elo:") {
-			memberElo.Elo2v2 = strings.Split(role, " ")[2]
-		} else if strings.Contains(role, "3v3 Elo:") {
-			memberElo.Elo3v3 = strings.Split(role, " ")[2]
-		} else if strings.Contains(role, "4v4 Elo:") {
-			memberElo.Elo4v4 = strings.Split(role, " ")[2]
+		role, err := s.State.Role(guildID, role)
+		roleName := role.Name
+		if err != nil {
+			return userElo{}, errors.New(fmt.Sprint("error getting role info: ", err))
+		}
+		if strings.Contains(roleName, "1v1 Elo:") {
+			memberElo.Elo1v1 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "2v2 Elo:") {
+			memberElo.Elo2v2 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "3v3 Elo:") {
+			memberElo.Elo3v3 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "4v4 Elo:") {
+			memberElo.Elo4v4 = strings.Split(roleName, " ")[2]
 		}
 	}
 
