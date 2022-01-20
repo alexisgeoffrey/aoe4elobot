@@ -32,10 +32,11 @@ type (
 	}
 
 	userElo struct {
-		Elo1v1 string
-		Elo2v2 string
-		Elo3v3 string
-		Elo4v4 string
+		Elo1v1    string
+		Elo2v2    string
+		Elo3v3    string
+		Elo4v4    string
+		EloCustom string
 	}
 
 	payload struct {
@@ -65,6 +66,11 @@ type (
 			WinStreak    int         `json:"winStreak"`
 		} `json:"items"`
 	}
+
+	safeMap struct {
+		respMap map[string]string
+		mu      sync.Mutex
+	}
 )
 
 func init() {
@@ -76,7 +82,7 @@ func init() {
 var (
 	token      string
 	guildID    string
-	eloTypes   = [...]string{"1v1", "2v2", "3v3", "4v4"} // a constant value, but Go cannot set arrays as constant, so using var
+	eloTypes   = [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"} // a constant value, but Go cannot set arrays as constant, so using var
 	eventMutex sync.Mutex
 )
 
@@ -286,6 +292,8 @@ func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 			memberElo.Elo3v3 = strings.Split(roleName, " ")[2]
 		} else if strings.Contains(roleName, "4v4 Elo:") {
 			memberElo.Elo4v4 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "Custom Elo:") {
+			memberElo.Elo4v4 = strings.Split(roleName, " ")[2]
 		}
 	}
 
@@ -297,6 +305,24 @@ func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 	if err != nil {
 		return userElo{}, fmt.Errorf("error sending request to AOE api: %w", err)
 	}
+	// convert elo map to userElo struct
+	var ue userElo
+	if elo, ok := eloMap["1v1"]; ok {
+		ue.Elo1v1 = elo
+	}
+	if elo, ok := eloMap["2v2"]; ok {
+		ue.Elo2v2 = elo
+	}
+	if elo, ok := eloMap["3v3"]; ok {
+		ue.Elo3v3 = elo
+	}
+	if elo, ok := eloMap["4v4"]; ok {
+		ue.Elo4v4 = elo
+	}
+	if elo, ok := eloMap["Custom"]; ok {
+		ue.EloCustom = elo
+	}
+
 	for _, eloType := range eloTypes {
 		if elo, ok := eloMap[eloType]; ok {
 			role, err := s.GuildRoleCreate(guildID)
@@ -313,21 +339,8 @@ func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 			}
 		}
 	}
-	// convert elo map to userElo struct
-	var userElo userElo
-	if elo, ok := eloMap["1v1"]; ok {
-		userElo.Elo1v1 = elo
-	}
-	if elo, ok := eloMap["2v2"]; ok {
-		userElo.Elo2v2 = elo
-	}
-	if elo, ok := eloMap["3v3"]; ok {
-		userElo.Elo3v3 = elo
-	}
-	if elo, ok := eloMap["4v4"]; ok {
-		userElo.Elo4v4 = elo
-	}
-	return userElo, nil
+
+	return ue, nil
 }
 
 func removeAllExistingRoles(s *discordgo.Session) error {
@@ -390,6 +403,9 @@ func formatUpdateMessage(st *discordgo.State, u []user) (string, error) {
 		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != "" && oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
 		}
+		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("Custom Elo:", oldElo, "->", newElo))
+		}
 		updateMessage.WriteString("\n")
 	}
 
@@ -397,66 +413,84 @@ func formatUpdateMessage(st *discordgo.State, u []user) (string, error) {
 }
 
 func queryAoeApi(username string) (map[string]string, error) {
-	respMap := make(map[string]string, 4)
+	respMap := make(map[string]string)
+	safeMap := safeMap{respMap: respMap}
+	var wg sync.WaitGroup
+
 	for _, matchType := range eloTypes {
-		data := payload{
-			Region:       "7",
-			Versus:       "players",
-			MatchType:    "unranked",
-			TeamSize:     matchType,
-			SearchPlayer: username,
+		var data payload
+		if matchType == "Custom" {
+			data = payload{
+				Region:       "7",
+				Versus:       "players",
+				MatchType:    matchType,
+				SearchPlayer: username,
+			}
+		} else {
+			data = payload{
+				Region:       "7",
+				Versus:       "players",
+				MatchType:    "unranked",
+				TeamSize:     matchType,
+				SearchPlayer: username,
+			}
 		}
-		elo, err := querySpecificEloAoeApi(data)
-		if err != nil {
-			return nil, fmt.Errorf("error retrieving Elo for %s: %w", username, err)
-		} else if elo == "" {
-			continue
-		}
-		respMap[matchType] = elo
+		wg.Add(1)
+		go func() {
+			if err := querySpecificEloAoeApi(data, &safeMap); err != nil {
+				fmt.Printf("error retrieving Elo from AOE api for %s: %v", username, err)
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 
 	return respMap, nil
 }
 
-func querySpecificEloAoeApi(data payload) (string, error) {
+func querySpecificEloAoeApi(data payload, respMap *safeMap) error {
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
-		return "", fmt.Errorf("error marshaling json payload: %w", err)
+		return fmt.Errorf("error marshaling json payload: %w", err)
 	}
 	body := bytes.NewReader(payloadBytes)
 
 	req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
 	if err != nil {
-		return "", fmt.Errorf("error creating POST request: %w", err)
+		return fmt.Errorf("error creating POST request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error sending POST to API: %w", err)
+		return fmt.Errorf("error sending POST to API: %w", err)
 	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("error reading API response: %w", err)
+		return fmt.Errorf("error reading API response: %w", err)
 	}
 	resp.Body.Close()
 
 	if resp.StatusCode == 204 {
-		return "", nil
+		return nil
 	}
 
 	var respBodyJson response
 	err = json.Unmarshal(respBody, &respBodyJson)
 	if err != nil {
-		return "", fmt.Errorf("error unmarshaling json API response: %w", err)
+		return fmt.Errorf("error unmarshaling json API response: %w", err)
 	}
 	if respBodyJson.Count < 1 {
-		return "", nil
+		return nil
 	}
 
-	return strconv.Itoa(respBodyJson.Items[0].Elo), nil
+	respMap.mu.Lock()
+	respMap.respMap[data.MatchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
+	respMap.mu.Unlock()
+
+	return nil
 }
 
 func configFileToBytes() ([]byte, error) {
