@@ -27,6 +27,8 @@ type (
 	user struct {
 		DiscordUserID string `json:"discord_user_id"`
 		SteamUsername string `json:"steam_username"`
+		oldElo        userElo
+		newElo        userElo
 	}
 
 	userElo struct {
@@ -143,11 +145,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		name, err := saveToConfig(m)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
-			fmt.Println("error updating username: ", err)
+			fmt.Printf("error updating username: %v\n", err)
 			return
 		}
 		// Send response as a reply to message
-		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprint("Steam username for ", m.Author.Username, " has been updated to ", name, "."), m.MessageReference)
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Username, name), m.MessageReference)
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
 		eventMutex.Lock()
 		defer eventMutex.Unlock()
@@ -156,7 +158,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		updateMessage, err := updateAllElo(s)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
-			fmt.Println("error updating elo: ", err)
+			fmt.Printf("error updating elo: %v\n", err)
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, updateMessage)
@@ -166,7 +168,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	configBytes, err := configFileToBytes()
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
+		return "", fmt.Errorf("error converting config file to bytes: %w", err)
 	}
 
 	var users users
@@ -184,7 +186,7 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 			users.Users[i].SteamUsername = steamUsername
 			jsonUsers, err := json.Marshal(users)
 			if err != nil {
-				return "", errors.New(fmt.Sprint("error marshaling users: ", err))
+				return "", fmt.Errorf("error marshaling users: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
 			return users.Users[i].SteamUsername, nil
@@ -201,7 +203,7 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	)
 	jsonUsers, err := json.Marshal(users)
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error marshaling users: ", err))
+		return "", fmt.Errorf("error marshaling users: %w", err)
 	}
 	os.WriteFile(configPath, jsonUsers, 0644)
 	return steamUsername, nil
@@ -212,41 +214,39 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 
 	configBytes, err := configFileToBytes()
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error converting config file to bytes: ", err))
+		return "", fmt.Errorf("error converting config file to bytes: %w", err)
 	}
 
-	var users users
-	err = json.Unmarshal(configBytes, &users)
+	var u users
+	err = json.Unmarshal(configBytes, &u)
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error unmarshaling json bytes: ", err))
+		return "", fmt.Errorf("error unmarshaling config bytes: %w", err)
 	}
 
-	allMemberOldElo := make(map[string]userElo)
-	for _, user := range users.Users {
-		memberElo, err := getMemberElo(s.State, user)
+	for _, u := range u.Users {
+		memberElo, err := getMemberElo(s.State, u)
 		if err != nil {
-			return "", errors.New(fmt.Sprint("error retrieving existing member roles: ", err))
+			return "", fmt.Errorf("error retrieving existing member roles: %w", err)
 		}
-		allMemberOldElo[user.DiscordUserID] = memberElo
+		u.oldElo = memberElo
 	}
 
 	err = removeAllExistingRoles(s)
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error removing existing roles: ", err))
+		return "", fmt.Errorf("error removing existing roles: %w", err)
 	}
 
-	allMemberNewElo := make(map[string]userElo)
-	for _, user := range users.Users {
-		memberElo, err := updateMemberElo(s, user)
+	for _, u := range u.Users {
+		memberElo, err := updateMemberElo(s, u)
 		if err != nil {
-			return "", errors.New(fmt.Sprint("error updating member Elo: ", err))
+			return "", fmt.Errorf("error updating member Elo: %w", err)
 		}
-		allMemberNewElo[user.DiscordUserID] = memberElo
+		u.newElo = memberElo
 	}
 
-	updateMessage, err := formatUpdateMessage(s.State, allMemberOldElo, allMemberNewElo)
+	updateMessage, err := formatUpdateMessage(s.State, u.Users)
 	if err != nil {
-		return "", errors.New(fmt.Sprint("error formatting update message: ", err))
+		return "", fmt.Errorf("error formatting update message: %w", err)
 	}
 
 	fmt.Println(updateMessage)
@@ -254,68 +254,60 @@ func updateAllElo(s *discordgo.Session) (string, error) {
 	return updateMessage, nil
 }
 
-func formatUpdateMessage(st *discordgo.State, oldElo map[string]userElo, newElo map[string]userElo) (string, error) {
-	var updateMessage strings.Builder
-	updateMessage.WriteString("Elo updated!\n\n")
-
+func getMemberElo(st *discordgo.State, u user) (userElo, error) {
 	st.RLock()
 	defer st.RUnlock()
 
-	for userID, oldMemberElo := range oldElo {
-		if newElo[userID] == oldMemberElo {
+	member, err := st.Member(guildID, u.DiscordUserID)
+	if err != nil {
+		return userElo{}, fmt.Errorf("error retrieving member: %w", err)
+	}
+
+	var memberElo userElo
+	for _, roleID := range member.Roles {
+		role, err := st.Role(guildID, roleID)
+		if err != nil {
+			fmt.Printf("error retrieving role %s for member %s: %v\n ", roleID, member.User.Username, err)
 			continue
 		}
 
-		member, err := st.Member(guildID, userID)
+		roleName := role.Name
 		if err != nil {
-			return "", errors.New(fmt.Sprint("error retrieving member name: ", err))
+			return userElo{}, fmt.Errorf("error getting role info: %w", err)
 		}
 
-		var memberName string
-		// check if nickname is assigned
-		if member.Nick != "" {
-			memberName = member.Nick
-		} else {
-			memberName = member.User.Username
+		if strings.Contains(roleName, "1v1 Elo:") {
+			memberElo.Elo1v1 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "2v2 Elo:") {
+			memberElo.Elo2v2 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "3v3 Elo:") {
+			memberElo.Elo3v3 = strings.Split(roleName, " ")[2]
+		} else if strings.Contains(roleName, "4v4 Elo:") {
+			memberElo.Elo4v4 = strings.Split(roleName, " ")[2]
 		}
-
-		updateMessage.WriteString(fmt.Sprint(memberName, ":\n"))
-		if oldElo, newElo := oldMemberElo.Elo1v1, newElo[userID].Elo1v1; oldElo != "" && oldElo != newElo {
-			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
-		}
-		if oldElo, newElo := oldMemberElo.Elo2v2, newElo[userID].Elo2v2; oldElo != "" && oldElo != newElo {
-			updateMessage.WriteString(fmt.Sprintln("2v2 Elo:", oldElo, "->", newElo))
-		}
-		if oldElo, newElo := oldMemberElo.Elo3v3, newElo[userID].Elo3v3; oldElo != "" && oldElo != newElo {
-			updateMessage.WriteString(fmt.Sprintln("3v3 Elo:", oldElo, "->", newElo))
-		}
-		if oldElo, newElo := oldMemberElo.Elo4v4, newElo[userID].Elo4v4; oldElo != "" && oldElo != newElo {
-			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
-		}
-		updateMessage.WriteString("\n")
 	}
 
-	return updateMessage.String(), nil
+	return memberElo, nil
 }
 
 func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
-	eloMap, err := queryElo(u.SteamUsername)
+	eloMap, err := queryAoeApi(u.SteamUsername)
 	if err != nil {
-		return userElo{}, errors.New(fmt.Sprint("error sending request to api: ", err))
+		return userElo{}, fmt.Errorf("error sending request to AOE api: %w", err)
 	}
 	for _, eloType := range eloTypes {
 		if elo, ok := eloMap[eloType]; ok {
 			role, err := s.GuildRoleCreate(guildID)
 			if err != nil {
-				return userElo{}, errors.New(fmt.Sprint("error creating guild role: ", err))
+				return userElo{}, fmt.Errorf("error creating guild role: %w", err)
 			}
 			role, err = s.GuildRoleEdit(guildID, role.ID, fmt.Sprintf("%s Elo: %s", eloType, elo), 1, false, 0, false)
 			if err != nil {
-				return userElo{}, errors.New(fmt.Sprint("error editing guild role: ", err))
+				return userElo{}, fmt.Errorf("error editing guild role: %w", err)
 			}
 			err = s.GuildMemberRoleAdd(guildID, u.DiscordUserID, role.ID)
 			if err != nil {
-				return userElo{}, errors.New(fmt.Sprint("error adding guild role: ", err))
+				return userElo{}, fmt.Errorf("error adding guild role: %w", err)
 			}
 		}
 	}
@@ -336,56 +328,20 @@ func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 	return userElo, nil
 }
 
-func getMemberElo(st *discordgo.State, u user) (userElo, error) {
-	st.RLock()
-	defer st.RUnlock()
-
-	member, err := st.Member(guildID, u.DiscordUserID)
-	if err != nil {
-		return userElo{}, errors.New(fmt.Sprint("error retrieving member: ", err))
-	}
-
-	var memberElo userElo
-	for _, roleID := range member.Roles {
-		role, err := st.Role(guildID, roleID)
-		if err != nil {
-			fmt.Println("error retrieving role ", roleID, " for member ", member.User.Username, ": ", err)
-			continue
-		}
-
-		roleName := role.Name
-		if err != nil {
-			return userElo{}, errors.New(fmt.Sprint("error getting role info: ", err))
-		}
-
-		if strings.Contains(roleName, "1v1 Elo:") {
-			memberElo.Elo1v1 = strings.Split(roleName, " ")[2]
-		} else if strings.Contains(roleName, "2v2 Elo:") {
-			memberElo.Elo2v2 = strings.Split(roleName, " ")[2]
-		} else if strings.Contains(roleName, "3v3 Elo:") {
-			memberElo.Elo3v3 = strings.Split(roleName, " ")[2]
-		} else if strings.Contains(roleName, "4v4 Elo:") {
-			memberElo.Elo4v4 = strings.Split(roleName, " ")[2]
-		}
-	}
-
-	return memberElo, nil
-}
-
 func removeAllExistingRoles(s *discordgo.Session) error {
 	s.State.RLock()
 	defer s.State.RUnlock()
 
 	guild, err := s.State.Guild(guildID)
 	if err != nil {
-		return errors.New(fmt.Sprint("error getting guild from state: ", err))
+		return fmt.Errorf("error getting guild from state: %w", err)
 	}
 
 	for _, role := range guild.Roles {
 		if strings.Contains(role.Name, "Elo:") {
 			err = s.GuildRoleDelete(guildID, role.ID)
 			if err != nil {
-				fmt.Println("error removing role ", role.ID+":", err)
+				fmt.Printf("error removing role %s: %v\n", role.ID, err)
 				continue
 			}
 		}
@@ -394,7 +350,51 @@ func removeAllExistingRoles(s *discordgo.Session) error {
 	return nil
 }
 
-func queryElo(username string) (map[string]string, error) {
+func formatUpdateMessage(st *discordgo.State, u []user) (string, error) {
+	var updateMessage strings.Builder
+	updateMessage.WriteString("Elo updated!\n\n")
+
+	st.RLock()
+	defer st.RUnlock()
+
+	for _, u := range u {
+		if u.newElo == u.oldElo {
+			continue
+		}
+
+		member, err := st.Member(guildID, u.DiscordUserID)
+		if err != nil {
+			return "", fmt.Errorf("error retrieving member %s name: %w", u.DiscordUserID, err)
+		}
+
+		var memberName string
+		// check if nickname is assigned
+		if member.Nick != "" {
+			memberName = member.Nick
+		} else {
+			memberName = member.User.Username
+		}
+
+		updateMessage.WriteString(fmt.Sprint(memberName, ":\n"))
+		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := u.oldElo.Elo2v2, u.newElo.Elo2v2; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("2v2 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := u.oldElo.Elo3v3, u.newElo.Elo3v3; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("3v3 Elo:", oldElo, "->", newElo))
+		}
+		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != "" && oldElo != newElo {
+			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
+		}
+		updateMessage.WriteString("\n")
+	}
+
+	return updateMessage.String(), nil
+}
+
+func queryAoeApi(username string) (map[string]string, error) {
 	respMap := make(map[string]string, 4)
 	for _, matchType := range eloTypes {
 		data := payload{
@@ -404,80 +404,98 @@ func queryElo(username string) (map[string]string, error) {
 			TeamSize:     matchType,
 			SearchPlayer: username,
 		}
-		payloadBytes, err := json.Marshal(data)
+		elo, err := querySpecificEloAoeApi(data)
 		if err != nil {
-			return nil, errors.New(fmt.Sprint("error marshaling json payload: ", err))
-		}
-		body := bytes.NewReader(payloadBytes)
-
-		req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
-		if err != nil {
-			return nil, errors.New(fmt.Sprint("error creating POST request: ", err))
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, errors.New(fmt.Sprint("error sending POST to API: ", err))
-		}
-
-		respBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, errors.New(fmt.Sprint("error reading API response: ", err))
-		}
-		resp.Body.Close()
-
-		if resp.StatusCode == 204 {
+			return nil, fmt.Errorf("error retrieving Elo for %s: %w", username, err)
+		} else if elo == "" {
 			continue
 		}
-
-		var respBodyJson response
-		err = json.Unmarshal(respBody, &respBodyJson)
-		if err != nil {
-			return nil, errors.New(fmt.Sprint("error unmarshaling json API response: ", err))
-		}
-		if respBodyJson.Count < 1 {
-			continue
-		}
-		respMap[matchType] = strconv.Itoa(respBodyJson.Items[len(respBodyJson.Items)-1].Elo)
+		respMap[matchType] = elo
 	}
 
 	return respMap, nil
 }
 
-func openConfigFile() (*os.File, error) {
+func querySpecificEloAoeApi(data payload) (string, error) {
+	payloadBytes, err := json.Marshal(data)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling json payload: %w", err)
+	}
+	body := bytes.NewReader(payloadBytes)
+
+	req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
+	if err != nil {
+		return "", fmt.Errorf("error creating POST request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error sending POST to API: %w", err)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading API response: %w", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode == 204 {
+		return "", nil
+	}
+
+	var respBodyJson response
+	err = json.Unmarshal(respBody, &respBodyJson)
+	if err != nil {
+		return "", fmt.Errorf("error unmarshaling json API response: %w", err)
+	}
+	if respBodyJson.Count < 1 {
+		return "", nil
+	}
+
+	return strconv.Itoa(respBodyJson.Items[0].Elo), nil
+}
+
+func configFileToBytes() ([]byte, error) {
+	configFile, err := openOrCreateConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("error opening json file: %w", err)
+	}
+	defer configFile.Close()
+
+	configBytes, err := io.ReadAll(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading json file: %w", err)
+	}
+
+	return configBytes, nil
+}
+
+func openOrCreateConfigFile() (*os.File, error) {
 	configFile, err := os.Open(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			fmt.Println("Config file does not exist. Creating file config.json")
 			jsonUsers, err := json.Marshal(users{Users: []user{}})
 			if err != nil {
-				return nil, errors.New(fmt.Sprint("error marshaling json: ", err))
+				return nil, fmt.Errorf("error marshaling json: %w", err)
+			}
+			os.MkdirAll("config", os.ModeDir)
+			if err != nil {
+				return nil, fmt.Errorf("error creating config directory: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
+			if err != nil {
+				return nil, fmt.Errorf("error creating config file: %w", err)
+			}
 			configFile, err = os.Open(configPath)
 			if err != nil {
-				return nil, errors.New(fmt.Sprint("error opening config file: ", err))
+				return nil, fmt.Errorf("error opening config file: %w", err)
 			}
 		} else {
-			return nil, errors.New(fmt.Sprint("error opening config file: ", err))
+			return nil, fmt.Errorf("error opening config file: %w", err)
 		}
 	}
 	return configFile, nil
-}
-
-func configFileToBytes() ([]byte, error) {
-	configFile, err := openConfigFile()
-	if err != nil {
-		return nil, errors.New(fmt.Sprint("error opening json file: ", err))
-	}
-	defer configFile.Close()
-
-	configBytes, err := io.ReadAll(configFile)
-	if err != nil {
-		return nil, errors.New(fmt.Sprint("error reading json file: ", err))
-	}
-
-	return configBytes, nil
 }
