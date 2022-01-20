@@ -405,7 +405,7 @@ func queryAoeApi(username string) (map[string]string, error) {
 	}{respMap: rm}
 	var wg sync.WaitGroup
 
-	querySpecificElo := func(data payload) error {
+	querySpecificElo := func(data payload, matchType string) error {
 		payloadBytes, err := json.Marshal(data)
 		if err != nil {
 			return fmt.Errorf("error marshaling json payload: %w", err)
@@ -443,7 +443,7 @@ func queryAoeApi(username string) (map[string]string, error) {
 		}
 
 		safeMap.mu.Lock()
-		safeMap.respMap[data.MatchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
+		safeMap.respMap[matchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
 		safeMap.mu.Unlock()
 
 		return nil
@@ -466,12 +466,12 @@ func queryAoeApi(username string) (map[string]string, error) {
 			}
 		}
 		wg.Add(1)
-		go func() {
-			if err := querySpecificElo(data); err != nil {
+		go func(mt string) {
+			if err := querySpecificElo(data, mt); err != nil {
 				fmt.Printf("error retrieving Elo from AOE api for %s: %v", username, err)
 			}
 			wg.Done()
-		}()
+		}(matchType)
 	}
 	wg.Wait()
 
