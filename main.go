@@ -105,6 +105,8 @@ func main() {
 
 	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences | discordgo.IntentsGuildMessages
 
+	dg.LogLevel = 2
+
 	c := cron.New()
 	c.AddFunc("@midnight", func() {
 		fmt.Println("Running scheduled Elo update.")
@@ -144,12 +146,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		name, err := saveToConfig(m)
 		if err != nil {
-			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.MessageReference)
+			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.Reference())
 			fmt.Printf("error updating username: %v\n", err)
 			return
 		}
 		// Send response as a reply to message
-		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Username, name), m.MessageReference)
+		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Username, name), m.Reference())
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
 		eventMutex.Lock()
 		defer eventMutex.Unlock()
@@ -460,7 +462,7 @@ func querySpecificEloAoeApi(data payload) (string, error) {
 func configFileToBytes() ([]byte, error) {
 	configFile, err := openOrCreateConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("error opening json file: %w", err)
+		return nil, fmt.Errorf("error opening config file: %w", err)
 	}
 	defer configFile.Close()
 
@@ -481,7 +483,7 @@ func openOrCreateConfigFile() (*os.File, error) {
 			if err != nil {
 				return nil, fmt.Errorf("error marshaling json: %w", err)
 			}
-			os.MkdirAll("config", os.ModeDir)
+			os.MkdirAll("config", 0744)
 			if err != nil {
 				return nil, fmt.Errorf("error creating config directory: %w", err)
 			}
