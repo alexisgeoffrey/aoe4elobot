@@ -38,39 +38,6 @@ type (
 		Elo4v4    string
 		EloCustom string
 	}
-
-	payload struct {
-		Region       string `json:"region"`
-		Versus       string `json:"versus"`
-		MatchType    string `json:"matchType"`
-		TeamSize     string `json:"teamSize"`
-		SearchPlayer string `json:"searchPlayer"`
-	}
-
-	response struct {
-		Count int `json:"count"`
-		Items []struct {
-			GameID       string      `json:"gameId"`
-			UserID       string      `json:"userId"`
-			RlUserID     int         `json:"rlUserId"`
-			UserName     string      `json:"userName"`
-			AvatarURL    interface{} `json:"avatarUrl"`
-			PlayerNumber interface{} `json:"playerNumber"`
-			Elo          int         `json:"elo"`
-			EloRating    int         `json:"eloRating"`
-			Rank         int         `json:"rank"`
-			Region       string      `json:"region"`
-			Wins         int         `json:"wins"`
-			WinPercent   float64     `json:"winPercent"`
-			Losses       int         `json:"losses"`
-			WinStreak    int         `json:"winStreak"`
-		} `json:"items"`
-	}
-
-	safeMap struct {
-		respMap map[string]string
-		mu      sync.Mutex
-	}
 )
 
 func init() {
@@ -413,9 +380,87 @@ func formatUpdateMessage(st *discordgo.State, u []user) (string, error) {
 }
 
 func queryAoeApi(username string) (map[string]string, error) {
+	type (
+		payload struct {
+			Region       string `json:"region"`
+			Versus       string `json:"versus"`
+			MatchType    string `json:"matchType"`
+			TeamSize     string `json:"teamSize"`
+			SearchPlayer string `json:"searchPlayer"`
+		}
+
+		response struct {
+			Count int `json:"count"`
+			Items []struct {
+				GameID       string      `json:"gameId"`
+				UserID       string      `json:"userId"`
+				RlUserID     int         `json:"rlUserId"`
+				UserName     string      `json:"userName"`
+				AvatarURL    interface{} `json:"avatarUrl"`
+				PlayerNumber interface{} `json:"playerNumber"`
+				Elo          int         `json:"elo"`
+				EloRating    int         `json:"eloRating"`
+				Rank         int         `json:"rank"`
+				Region       string      `json:"region"`
+				Wins         int         `json:"wins"`
+				WinPercent   float64     `json:"winPercent"`
+				Losses       int         `json:"losses"`
+				WinStreak    int         `json:"winStreak"`
+			} `json:"items"`
+		}
+	)
+
 	respMap := make(map[string]string)
-	safeMap := safeMap{respMap: respMap}
+	safeMap := struct {
+		respMap map[string]string
+		mu      sync.Mutex
+	}{respMap: respMap}
 	var wg sync.WaitGroup
+
+	querySpecificElo := func(data payload) error {
+		payloadBytes, err := json.Marshal(data)
+		if err != nil {
+			return fmt.Errorf("error marshaling json payload: %w", err)
+		}
+		body := bytes.NewReader(payloadBytes)
+
+		req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
+		if err != nil {
+			return fmt.Errorf("error creating POST request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("error sending POST to API: %w", err)
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("error reading API response: %w", err)
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode == 204 {
+			return nil
+		}
+
+		var respBodyJson response
+		err = json.Unmarshal(respBody, &respBodyJson)
+		if err != nil {
+			return fmt.Errorf("error unmarshaling json API response: %w", err)
+		}
+		if respBodyJson.Count < 1 {
+			return nil
+		}
+
+		safeMap.mu.Lock()
+		safeMap.respMap[data.MatchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
+		safeMap.mu.Unlock()
+
+		return nil
+	}
 
 	for _, matchType := range eloTypes {
 		var data payload
@@ -437,7 +482,7 @@ func queryAoeApi(username string) (map[string]string, error) {
 		}
 		wg.Add(1)
 		go func() {
-			if err := querySpecificEloAoeApi(data, &safeMap); err != nil {
+			if err := querySpecificElo(data); err != nil {
 				fmt.Printf("error retrieving Elo from AOE api for %s: %v", username, err)
 			}
 			wg.Done()
@@ -446,51 +491,6 @@ func queryAoeApi(username string) (map[string]string, error) {
 	wg.Wait()
 
 	return respMap, nil
-}
-
-func querySpecificEloAoeApi(data payload, respMap *safeMap) error {
-	payloadBytes, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("error marshaling json payload: %w", err)
-	}
-	body := bytes.NewReader(payloadBytes)
-
-	req, err := http.NewRequest("POST", "https://api.ageofempires.com/api/ageiv/Leaderboard", body)
-	if err != nil {
-		return fmt.Errorf("error creating POST request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending POST to API: %w", err)
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("error reading API response: %w", err)
-	}
-	resp.Body.Close()
-
-	if resp.StatusCode == 204 {
-		return nil
-	}
-
-	var respBodyJson response
-	err = json.Unmarshal(respBody, &respBodyJson)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling json API response: %w", err)
-	}
-	if respBodyJson.Count < 1 {
-		return nil
-	}
-
-	respMap.mu.Lock()
-	respMap.respMap[data.MatchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
-	respMap.mu.Unlock()
-
-	return nil
 }
 
 func configFileToBytes() ([]byte, error) {
