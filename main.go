@@ -47,63 +47,15 @@ func init() {
 }
 
 var (
-	token      string
-	guildID    string
-	eloTypes   = [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"} // a constant value, but Go cannot set arrays as constant, so using var
-	eventMutex sync.Mutex
+	token    string
+	guildID  string
+	cmdMutex sync.Mutex
 )
 
 const configPath string = "config/config.json"
 
-func main() {
-	if token == "" {
-		fmt.Println("No token provided.")
-		return
-	}
-
-	if guildID == "" {
-		fmt.Println("No Guild ID provided.")
-		return
-	}
-
-	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + token)
-	if err != nil {
-		fmt.Printf("Error creating Discord session: %v\n", err)
-		return
-	}
-
-	// Register the messageCreate func as a callback for MessageCreate events.
-	dg.AddHandler(messageCreate)
-
-	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences | discordgo.IntentsGuildMessages
-
-	dg.LogLevel = 2
-
-	c := cron.New()
-	c.AddFunc("@midnight", func() {
-		fmt.Println("Running scheduled Elo update.")
-		updateAllElo(dg)
-	})
-
-	// Open a websocket connection to Discord and begin listening.
-	if err := dg.Open(); err != nil {
-		fmt.Printf("error opening connection to Discord: %v\n", err)
-		return
-	}
-
-	c.Start()
-
-	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("AOE4 Elo Bot is now running. Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sc
-
-	// Cleanly close down the Cron job and Discord session.
-	fmt.Println("Shutting down...")
-	c.Stop()
-	dg.Close()
+func getEloTypes() [5]string {
+	return [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -113,8 +65,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if strings.HasPrefix(m.Content, "!setEloName") {
-		eventMutex.Lock()
-		defer eventMutex.Unlock()
+		cmdMutex.Lock()
+		defer cmdMutex.Unlock()
 
 		name, err := saveToConfig(m)
 		if err != nil {
@@ -125,8 +77,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Username, name), m.Reference())
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
-		eventMutex.Lock()
-		defer eventMutex.Unlock()
+		cmdMutex.Lock()
+		defer cmdMutex.Unlock()
 
 		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
 		updateMessage, err := updateAllElo(s)
@@ -271,7 +223,7 @@ func updateMemberElo(s *discordgo.Session, u user) (userElo, error) {
 		return userElo{}, fmt.Errorf("error sending request to AOE api: %w", err)
 	}
 
-	for _, eloType := range eloTypes {
+	for _, eloType := range getEloTypes() {
 		if elo, ok := eloMap[eloType]; ok {
 			role, err := s.GuildRoleCreate(guildID)
 			if err != nil {
@@ -449,7 +401,7 @@ func queryAoeApi(username string) (map[string]string, error) {
 		return nil
 	}
 
-	for _, matchType := range eloTypes {
+	for _, matchType := range getEloTypes() {
 		data := payload{
 			Region:       "7",
 			Versus:       "players",
@@ -516,4 +468,55 @@ func openOrCreateConfigFile() (*os.File, error) {
 		}
 	}
 	return configFile, nil
+}
+
+func main() {
+	if token == "" {
+		fmt.Println("No token provided.")
+		return
+	}
+
+	if guildID == "" {
+		fmt.Println("No Guild ID provided.")
+		return
+	}
+
+	// Create a new Discord session using the provided bot token.
+	dg, err := discordgo.New("Bot " + token)
+	if err != nil {
+		fmt.Printf("Error creating Discord session: %v\n", err)
+		return
+	}
+
+	// Register the messageCreate func as a callback for MessageCreate events.
+	dg.AddHandler(messageCreate)
+
+	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences | discordgo.IntentsGuildMessages
+
+	dg.LogLevel = 2
+
+	c := cron.New()
+	c.AddFunc("@midnight", func() {
+		fmt.Println("Running scheduled Elo update.")
+		updateAllElo(dg)
+	})
+
+	// Open a websocket connection to Discord and begin listening.
+	if err := dg.Open(); err != nil {
+		fmt.Printf("error opening connection to Discord: %v\n", err)
+		return
+	}
+
+	c.Start()
+
+	// Wait here until CTRL-C or other term signal is received.
+	fmt.Println("AOE4 Elo Bot is now running. Press CTRL-C to exit.")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sc
+
+	// Cleanly close down the Cron job and Discord session.
+	fmt.Println("Shutting down...")
+	c.Stop()
+	dg.Close()
 }
