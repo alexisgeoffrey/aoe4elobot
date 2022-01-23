@@ -52,10 +52,10 @@ func formatUpdateMessage(st *discordgo.State, u []user, guildId string) (string,
 		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != "" && oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("Custom Elo:", oldElo, "->", newElo))
 		}
-		updateMessage.WriteString("\n")
+		updateMessage.WriteByte('\n')
 	}
 
-	return updateMessage.String(), nil
+	return strings.TrimSpace(updateMessage.String()), nil
 }
 
 func saveToConfig(m *discordgo.MessageCreate) (string, error) {
