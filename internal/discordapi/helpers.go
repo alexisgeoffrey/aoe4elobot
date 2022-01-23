@@ -28,15 +28,7 @@ func formatUpdateMessage(st *discordgo.State, u []user, guildId string) (string,
 			return "", fmt.Errorf("error retrieving member %s name: %w", u.DiscordUserID, err)
 		}
 
-		var memberName string
-		// check if nickname is assigned
-		if member.Nick != "" {
-			memberName = member.Nick
-		} else {
-			memberName = member.User.Username
-		}
-
-		updateMessage.WriteString(fmt.Sprint(memberName, ":\n"))
+		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
 		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != "" && oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
 		}
