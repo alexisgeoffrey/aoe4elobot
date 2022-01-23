@@ -145,5 +145,8 @@ func Query(data Payload, matchType string) (string, error) {
 }
 
 func newSafeMap() safeMap {
-	return safeMap{respMap: make(map[string]string)}
+	return safeMap{
+		respMap: make(map[string]string),
+		mu:      &sync.Mutex{},
+	}
 }
