@@ -107,15 +107,18 @@ func queryToMap(data Payload, matchType string, sm safeMap) error {
 	if err != nil {
 		return fmt.Errorf("error sending POST to API: %w", err)
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNoContent {
+			return nil
+		}
+		return fmt.Errorf("error from API, received status code %d", resp.StatusCode)
+	}
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("error reading API response: %w", err)
-	}
-	resp.Body.Close()
-
-	if resp.StatusCode == 204 {
-		return nil
 	}
 
 	var respBodyJson response
