@@ -56,8 +56,8 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 		return "", fmt.Errorf("error converting config file to bytes: %w", err)
 	}
 
-	var users users
-	json.Unmarshal(configBytes, &users)
+	var us users
+	json.Unmarshal(configBytes, &us)
 
 	input := strings.SplitN(m.Content, " ", 2)
 	if len(input) <= 1 {
@@ -66,31 +66,35 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	steamUsername := input[1]
 
 	// check if user is already in config file, if so, modify that entry
-	for i, user := range users.Users {
-		if user.DiscordUserID == m.Author.ID {
-			users.Users[i].SteamUsername = steamUsername
-			jsonUsers, err := json.Marshal(users)
+	for i, u := range us.Users {
+		if u.DiscordUserID == m.Author.ID {
+			us.Users[i].SteamUsername = steamUsername
+			jsonUsers, err := json.Marshal(us)
 			if err != nil {
 				return "", fmt.Errorf("error marshaling users: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
-			return users.Users[i].SteamUsername, nil
+			return us.Users[i].SteamUsername, nil
 		}
 	}
 
 	// if user is not in config file, create a new entry
-	users.Users = append(
-		users.Users,
+	us.Users = append(
+		us.Users,
 		user{
 			DiscordUserID: m.Author.ID,
 			SteamUsername: steamUsername,
 		},
 	)
-	jsonUsers, err := json.Marshal(users)
+	jsonUsers, err := json.Marshal(us)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling users: %w", err)
 	}
-	os.WriteFile(configPath, jsonUsers, 0644)
+
+	if err := os.WriteFile(configPath, jsonUsers, 0644); err != nil {
+		return "", fmt.Errorf("error writing to config file: %w", err)
+	}
+
 	return steamUsername, nil
 }
 

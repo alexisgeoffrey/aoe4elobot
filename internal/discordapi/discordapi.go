@@ -40,7 +40,8 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		name, err := saveToConfig(m)
 		if err != nil {
-			s.ChannelMessageSendReply(m.ChannelID, "Your Steam username failed to update.", m.Reference())
+			s.ChannelMessageSendReply(m.ChannelID,
+				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`", m.Reference())
 			fmt.Printf("error updating username: %v\n", err)
 			return
 		}
