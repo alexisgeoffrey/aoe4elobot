@@ -29,19 +29,19 @@ func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string
 		}
 
 		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
-		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo2v2, u.newElo.Elo2v2; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo2v2, u.newElo.Elo2v2; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("2v2 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo3v3, u.newElo.Elo3v3; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo3v3, u.newElo.Elo3v3; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("3v3 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("Custom Elo:", oldElo, "->", newElo))
 		}
 		updateMessage.WriteByte('\n')
