@@ -44,11 +44,7 @@ type (
 		} `json:"items"`
 	}
 	UserElo struct {
-		Elo1v1    string `json:"1v1"`
-		Elo2v2    string `json:"2v2"`
-		Elo3v3    string `json:"3v3"`
-		Elo4v4    string `json:"4v4"`
-		EloCustom string `json:"Custom"`
+		Elo map[string]string
 	}
 )
 
@@ -56,7 +52,7 @@ func GetEloTypes() [5]string {
 	return [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}
 }
 
-func QueryAll(username string) (map[string]string, error) {
+func QueryAll(username string) (UserElo, error) {
 	sm := newSafeMap()
 	var wg sync.WaitGroup
 
@@ -86,7 +82,7 @@ func QueryAll(username string) (map[string]string, error) {
 	}
 	wg.Wait()
 
-	return sm.respMap, nil
+	return UserElo{sm.respMap}, nil
 }
 
 func queryToMap(data Payload, matchType string, sm safeMap) error {
