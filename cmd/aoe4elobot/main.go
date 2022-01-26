@@ -41,17 +41,25 @@ func main() {
 	dg.LogLevel = 2
 
 	c := cron.New()
-	c.AddFunc("@midnight", func() {
+	_, err = c.AddFunc("@midnight", func() {
 		fmt.Println("Running scheduled Elo update.")
 
 		dg.State.RLock()
-		defer dg.State.RUnlock()
-
 		guilds := dg.State.Guilds
+		dg.State.RUnlock()
+
 		for _, g := range guilds {
-			discordapi.UpdateAllElo(dg, g.ID)
+			if _, err := discordapi.UpdateAllElo(dg, g.ID); err != nil {
+				fmt.Printf("error updating elo on server %s: %v\n", g.ID, err)
+			}
 		}
+
+		fmt.Println("Scheduled Elo update complete.")
 	})
+	if err != nil {
+		fmt.Printf("error adding cron job: %v\n", err)
+		return
+	}
 
 	// Open a websocket connection to Discord and begin listening.
 	if err := dg.Open(); err != nil {

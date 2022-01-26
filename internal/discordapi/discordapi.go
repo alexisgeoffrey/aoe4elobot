@@ -104,7 +104,7 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 			wg.Done()
 		}(u)
 	}
-	wg.Done()
+	wg.Wait()
 
 	if err := addAllEloRoles(s, guildId, u, updatedElo); err != nil {
 		return "", fmt.Errorf("error formatting update message: %w", err)

@@ -11,14 +11,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func formatUpdateMessage(st *discordgo.State, u []user, guildId string) (string, error) {
+func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string, error) {
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
 	st.RLock()
 	defer st.RUnlock()
 
-	for _, u := range u {
+	for _, u := range us {
 		if u.newElo == u.oldElo {
 			continue
 		}
