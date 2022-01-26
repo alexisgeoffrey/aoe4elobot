@@ -11,14 +11,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func formatUpdateMessage(st *discordgo.State, u []user, guildId string) (string, error) {
+func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string, error) {
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
 	st.RLock()
 	defer st.RUnlock()
 
-	for _, u := range u {
+	for _, u := range us {
 		if u.newElo == u.oldElo {
 			continue
 		}
@@ -29,19 +29,19 @@ func formatUpdateMessage(st *discordgo.State, u []user, guildId string) (string,
 		}
 
 		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
-		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo2v2, u.newElo.Elo2v2; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo2v2, u.newElo.Elo2v2; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("2v2 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo3v3, u.newElo.Elo3v3; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo3v3, u.newElo.Elo3v3; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("3v3 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.Elo4v4, u.newElo.Elo4v4; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("4v4 Elo:", oldElo, "->", newElo))
 		}
-		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != "" && oldElo != newElo {
+		if oldElo, newElo := u.oldElo.EloCustom, u.newElo.EloCustom; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("Custom Elo:", oldElo, "->", newElo))
 		}
 		updateMessage.WriteByte('\n')
@@ -56,8 +56,8 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 		return "", fmt.Errorf("error converting config file to bytes: %w", err)
 	}
 
-	var users users
-	json.Unmarshal(configBytes, &users)
+	var us users
+	json.Unmarshal(configBytes, &us)
 
 	input := strings.SplitN(m.Content, " ", 2)
 	if len(input) <= 1 {
@@ -66,31 +66,35 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	steamUsername := input[1]
 
 	// check if user is already in config file, if so, modify that entry
-	for i, user := range users.Users {
-		if user.DiscordUserID == m.Author.ID {
-			users.Users[i].SteamUsername = steamUsername
-			jsonUsers, err := json.Marshal(users)
+	for i, u := range us.Users {
+		if u.DiscordUserID == m.Author.ID {
+			us.Users[i].SteamUsername = steamUsername
+			jsonUsers, err := json.Marshal(us)
 			if err != nil {
 				return "", fmt.Errorf("error marshaling users: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
-			return users.Users[i].SteamUsername, nil
+			return us.Users[i].SteamUsername, nil
 		}
 	}
 
 	// if user is not in config file, create a new entry
-	users.Users = append(
-		users.Users,
+	us.Users = append(
+		us.Users,
 		user{
 			DiscordUserID: m.Author.ID,
 			SteamUsername: steamUsername,
 		},
 	)
-	jsonUsers, err := json.Marshal(users)
+	jsonUsers, err := json.Marshal(us)
 	if err != nil {
 		return "", fmt.Errorf("error marshaling users: %w", err)
 	}
-	os.WriteFile(configPath, jsonUsers, 0644)
+
+	if err := os.WriteFile(configPath, jsonUsers, 0644); err != nil {
+		return "", fmt.Errorf("error writing to config file: %w", err)
+	}
+
 	return steamUsername, nil
 }
 

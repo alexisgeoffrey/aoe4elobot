@@ -81,34 +81,6 @@ func Test_getMemberElo(t *testing.T) {
 	}
 }
 
-func Test_updateMemberElo(t *testing.T) {
-	type args struct {
-		s       *discordgo.Session
-		u       user
-		guildId string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    aoeapi.UserElo
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := updateMemberElo(tt.args.s, tt.args.u, tt.args.guildId)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("updateMemberElo() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("updateMemberElo() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func Test_removeAllEloRoles(t *testing.T) {
 	type args struct {
 		s       *discordgo.Session
