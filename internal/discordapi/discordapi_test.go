@@ -81,23 +81,23 @@ func Test_getMemberElo(t *testing.T) {
 	}
 }
 
-func Test_removeAllEloRoles(t *testing.T) {
-	type args struct {
-		s       *discordgo.Session
-		guildId string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := removeAllEloRoles(tt.args.s, tt.args.guildId); (err != nil) != tt.wantErr {
-				t.Errorf("removeAllEloRoles() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
+// func Test_removeAllEloRoles(t *testing.T) {
+// 	type args struct {
+// 		s       *discordgo.Session
+// 		guildId string
+// 	}
+// 	tests := []struct {
+// 		name    string
+// 		args    args
+// 		wantErr bool
+// 	}{
+// 		// TODO: Add test cases.
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			if err := removeAllEloRoles(tt.args.s, tt.args.guildId); (err != nil) != tt.wantErr {
+// 				t.Errorf("removeAllEloRoles() error = %v, wantErr %v", err, tt.wantErr)
+// 			}
+// 		})
+// 	}
+// }
