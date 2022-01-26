@@ -130,8 +130,8 @@ func queryToMap(data Payload, matchType string, sm safeMap) error {
 	}
 
 	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.respMap[matchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
-	sm.mu.Unlock()
 
 	return nil
 }

@@ -15,9 +15,6 @@ func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
-	st.RLock()
-	defer st.RUnlock()
-
 	for _, u := range us {
 		if u.newElo == u.oldElo {
 			continue
@@ -29,6 +26,7 @@ func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string
 		}
 
 		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
+
 		if oldElo, newElo := u.oldElo.Elo1v1, u.newElo.Elo1v1; oldElo != newElo {
 			updateMessage.WriteString(fmt.Sprintln("1v1 Elo:", oldElo, "->", newElo))
 		}

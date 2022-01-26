@@ -44,11 +44,7 @@ func main() {
 	_, err = c.AddFunc("@midnight", func() {
 		fmt.Println("Running scheduled Elo update.")
 
-		dg.State.RLock()
-		guilds := dg.State.Guilds
-		dg.State.RUnlock()
-
-		for _, g := range guilds {
+		for _, g := range dg.State.Guilds {
 			if _, err := discordapi.UpdateAllElo(dg, g.ID); err != nil {
 				fmt.Printf("error updating elo on server %s: %v\n", g.ID, err)
 			}
