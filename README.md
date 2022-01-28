@@ -18,7 +18,7 @@ $ cd aoe4elobot
 ```
 Then, run the project, replacing the placeholders with their proper values:
 ```bash
-$ go run . -t DISCORD_BOT_TOKEN -g DISCORD_SERVER_ID
+$ go run . -t DISCORD_BOT_TOKEN
 ```
 ### *Docker*
 A Dockerfile is included in this repo so the bot can be run in a Docker container. First, clone the repo and navigate into its directory as before. Then, build the Docker image:
@@ -33,7 +33,6 @@ Finally, run the image, replacing `token` and `id` with the proper values:
 ```bash
 $ sudo docker run -v aoe4elobot-config:/app/config \
   -e AOE4ELO_TOKEN=token \
-  -e AOE4ELO_GUILD_ID=id \
   aoe4elobot
 ```
 Alternatively, Docker Compose can be used. Here is a sample `docker-compose.yml`:
@@ -44,7 +43,6 @@ services:
     container_name: aoe4elobot
     environment:
       - AOE4ELO_TOKEN=token
-      - AOE4ELO_GUILD_ID=id
     volumes:
       - config:/app/config
 volumes:
