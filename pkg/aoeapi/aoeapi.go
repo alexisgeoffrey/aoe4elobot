@@ -1,3 +1,5 @@
+// Package aoeapi provides functions for retrieving
+// Elo data from the Age of Empires 4 leaderboard API.
 package aoeapi
 
 import (
@@ -16,6 +18,7 @@ type (
 		respMap map[string]string
 	}
 
+	// A Payload represents the contents of a request to the AOE4 API.
 	Payload struct {
 		Region       string `json:"region"`
 		Versus       string `json:"versus"`
@@ -45,10 +48,12 @@ type (
 	}
 )
 
+// GetEloTypes returns the five Elo types that can be retrieved from the API.
 func GetEloTypes() [5]string {
 	return [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}
 }
 
+// Query queries the AOE4 API and returns the corresponding Elo value as a string.
 func Query(data Payload, matchType string) (string, error) {
 	sm := &safeMap{respMap: make(map[string]string)}
 
@@ -62,6 +67,8 @@ func Query(data Payload, matchType string) (string, error) {
 	return "", fmt.Errorf("no elo value found for match type %s for username %s", matchType, data.SearchPlayer)
 }
 
+// QueryAll queries the AOE4 API and returns Elo values for all Elo types
+// as a map of Elo types and Elo values.
 func QueryAll(username string) (map[string]string, error) {
 	var wg sync.WaitGroup
 	sm := &safeMap{respMap: make(map[string]string)}

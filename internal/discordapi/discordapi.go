@@ -30,6 +30,7 @@ var cmdMutex sync.Mutex
 
 const configPath = "config/config.json"
 
+// MessageCreate is the handler for Discordgo MessageCreate events.
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore all messages created by the bot itself
 	if m.Author.ID == s.State.User.ID {
@@ -64,6 +65,8 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 }
 
+// UpdateAllElo retrieves and updates all Elo roles on the server specified by the guildId
+// parameter. It returns an update message containing all changed Elo values for each server member.
 func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	fmt.Println("Updating Elo...")
 
