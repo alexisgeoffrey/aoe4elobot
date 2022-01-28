@@ -36,7 +36,10 @@ func main() {
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(discordapi.MessageCreate)
 
-	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMembers | discordgo.IntentsGuildPresences | discordgo.IntentsGuildMessages
+	dg.Identify.Intents = discordgo.IntentsGuilds |
+		discordgo.IntentsGuildMembers |
+		discordgo.IntentsGuildPresences |
+		discordgo.IntentsGuildMessages
 
 	dg.LogLevel = 2
 

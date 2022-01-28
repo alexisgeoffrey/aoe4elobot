@@ -30,13 +30,18 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		name, err := saveToConfig(m.Content, m.Author.ID)
 		if err != nil {
-			s.ChannelMessageSendReply(m.ChannelID,
-				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`", m.Reference())
+			s.ChannelMessageSendReply(
+				m.ChannelID,
+				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`",
+				m.Reference())
 			fmt.Printf("error updating username: %v\n", err)
 			return
 		}
 		// Send response as a reply to message
-		s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Mention(), name), m.Reference())
+		s.ChannelMessageSendReply(
+			m.ChannelID,
+			fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Mention(), name),
+			m.Reference())
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
