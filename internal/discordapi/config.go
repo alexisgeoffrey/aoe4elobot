@@ -7,11 +7,9 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/bwmarrin/discordgo"
 )
 
-func saveToConfig(m *discordgo.MessageCreate) (string, error) {
+func saveToConfig(content string, id string) (string, error) {
 	configBytes, err := configFileToBytes()
 	if err != nil {
 		return "", fmt.Errorf("error converting config file to bytes: %w", err)
@@ -20,7 +18,7 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	var us users
 	json.Unmarshal(configBytes, &us)
 
-	input := strings.SplitN(m.Content, " ", 2)
+	input := strings.SplitN(content, " ", 2)
 	if len(input) <= 1 {
 		return "", errors.New("invalid input for username")
 	}
@@ -28,7 +26,7 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 
 	// check if user is already in config file, if so, modify that entry
 	for i, u := range us.Users {
-		if u.DiscordUserID == m.Author.ID {
+		if u.DiscordUserID == id {
 			us.Users[i].SteamUsername = steamUsername
 			jsonUsers, err := json.Marshal(us)
 			if err != nil {
@@ -43,7 +41,7 @@ func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	us.Users = append(
 		us.Users,
 		user{
-			DiscordUserID: m.Author.ID,
+			DiscordUserID: id,
 			SteamUsername: steamUsername,
 		},
 	)

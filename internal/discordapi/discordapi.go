@@ -28,7 +28,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		name, err := saveToConfig(m)
+		name, err := saveToConfig(m.Content, m.Author.ID)
 		if err != nil {
 			s.ChannelMessageSendReply(m.ChannelID,
 				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`", m.Reference())
