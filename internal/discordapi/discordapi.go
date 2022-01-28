@@ -12,6 +12,8 @@ import (
 )
 
 type (
+	userElo map[string]string
+
 	users struct {
 		Users []user `json:"users"`
 	}
@@ -19,14 +21,14 @@ type (
 	user struct {
 		DiscordUserID string `json:"discord_user_id"`
 		SteamUsername string `json:"steam_username"`
-		oldElo        aoeapi.UserElo
-		newElo        aoeapi.UserElo
+		oldElo        userElo
+		newElo        userElo
 	}
 )
 
 var cmdMutex sync.Mutex
 
-const configPath string = "config/config.json"
+const configPath = "config/config.json"
 
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore all messages created by the bot itself
@@ -75,46 +77,42 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 		return "", fmt.Errorf("error unmarshaling config bytes: %w", err)
 	}
 
-	for _, u := range us.Users {
-		memberElo, err := getMemberElo(s.State, u, guildId)
+	for i, u := range us.Users {
+		memberElo, err := u.getMemberElo(s.State, guildId)
 		if err != nil {
 			return "", fmt.Errorf("error retrieving existing member roles: %w", err)
 		}
-		u.oldElo = memberElo
+		us.Users[i].oldElo = memberElo
 	}
-
-	// if err := removeAllEloRoles(s, guildId); err != nil {
-	// 	return "", fmt.Errorf("error removing existing roles: %w", err)
-	// }
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	updatedElo := make([]aoeapi.UserElo, 0, len(us.Users))
+	updatedElo := make(map[string]userElo)
 	for _, u := range us.Users {
 		wg.Add(1)
-		go func(steamU string) {
-			memberElo, err := aoeapi.QueryAll(steamU)
+		go func(u user) {
+			memberElo, err := aoeapi.QueryAll(u.SteamUsername)
 			if err != nil {
-				fmt.Printf("error updating member Elo: %v", err)
+				fmt.Printf("error querying member Elo: %v", err)
 			}
 			mu.Lock()
 			defer mu.Unlock()
-			updatedElo = append(updatedElo, memberElo)
+			updatedElo[u.DiscordUserID] = memberElo
 
 			wg.Done()
-		}(u.SteamUsername)
+		}(u)
 	}
 	wg.Wait()
 
-	for i, elo := range updatedElo {
-		us.Users[i].newElo = elo
+	for i, u := range us.Users {
+		us.Users[i].newElo = updatedElo[u.DiscordUserID]
 	}
 
-	if err := updateAllEloRoles(s, guildId, us); err != nil {
-		return "", fmt.Errorf("error formatting update message: %w", err)
+	if err := us.updateAllEloRoles(s, guildId); err != nil {
+		return "", fmt.Errorf("error updating elo roles: %w", err)
 	}
 
-	updateMessage, err := formatUpdateMessage(s.State, us.Users, guildId)
+	updateMessage, err := us.generateUpdateMessage(s.State, guildId)
 	if err != nil {
 		return "", fmt.Errorf("error formatting update message: %w", err)
 	}
@@ -124,13 +122,13 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	return updateMessage, nil
 }
 
-func getMemberElo(st *discordgo.State, u user, guildId string) (aoeapi.UserElo, error) {
+func (u user) getMemberElo(st *discordgo.State, guildId string) (userElo, error) {
 	member, err := st.Member(guildId, u.DiscordUserID)
 	if err != nil {
-		return aoeapi.UserElo{}, fmt.Errorf("error retrieving member: %w", err)
+		return nil, fmt.Errorf("error retrieving member: %w", err)
 	}
 
-	var memberElo aoeapi.UserElo
+	memberElo := make(map[string]string)
 	for _, roleID := range member.Roles {
 		role, err := st.Role(guildId, roleID)
 		if err != nil {
@@ -140,12 +138,12 @@ func getMemberElo(st *discordgo.State, u user, guildId string) (aoeapi.UserElo, 
 
 		roleName := role.Name
 		if err != nil {
-			return aoeapi.UserElo{}, fmt.Errorf("error getting role info: %w", err)
+			return nil, fmt.Errorf("error getting role info: %w", err)
 		}
 
 		for _, eloT := range aoeapi.GetEloTypes() {
 			if strings.Contains(roleName, eloT+" Elo:") {
-				memberElo.Elo[eloT] = strings.Split(roleName, " ")[2]
+				memberElo[eloT] = strings.Split(roleName, " ")[2]
 			}
 		}
 	}
@@ -153,7 +151,7 @@ func getMemberElo(st *discordgo.State, u user, guildId string) (aoeapi.UserElo, 
 	return memberElo, nil
 }
 
-func updateAllEloRoles(s *discordgo.Session, guildId string, us users) error {
+func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 	for _, u := range us.Users {
 		member, err := s.State.Member(guildId, u.DiscordUserID)
 		if err != nil {
@@ -170,9 +168,8 @@ func updateAllEloRoles(s *discordgo.Session, guildId string, us users) error {
 			}
 		}
 
-		ue := u.newElo
 		for _, eloType := range aoeapi.GetEloTypes() {
-			if elo, ok := ue.Elo[eloType]; ok {
+			if elo, ok := u.newElo[eloType]; ok && elo != u.oldElo[eloType] {
 				roleName := fmt.Sprintf("%s Elo: %s", eloType, elo)
 				if role, ok := roleSet[eloType]; ok {
 					_, err = s.GuildRoleEdit(guildId, role.ID, roleName, 1, false, 0, false)

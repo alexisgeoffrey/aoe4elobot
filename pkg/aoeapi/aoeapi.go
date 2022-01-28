@@ -12,8 +12,8 @@ import (
 
 type (
 	safeMap struct {
+		sync.Mutex
 		respMap map[string]string
-		mu      *sync.Mutex
 	}
 
 	Payload struct {
@@ -43,27 +43,31 @@ type (
 			WinStreak    int         `json:"winStreak"`
 		} `json:"items"`
 	}
-	UserElo struct {
-		Elo map[string]string
-	}
 )
 
 func GetEloTypes() [5]string {
 	return [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}
 }
 
-func QueryAll(username string) (UserElo, error) {
-	sm := newSafeMap()
+func Query(data Payload, matchType string) (string, error) {
+	sm := &safeMap{respMap: make(map[string]string)}
+
+	if err := queryToMap(data, matchType, sm); err != nil {
+		return "", fmt.Errorf("error querying aoe api and/or inserting in map: %w", err)
+	}
+
+	if elo, ok := sm.respMap[matchType]; ok {
+		return elo, nil
+	}
+	return "", fmt.Errorf("no elo value found for match type %s for username %s", matchType, data.SearchPlayer)
+}
+
+func QueryAll(username string) (map[string]string, error) {
 	var wg sync.WaitGroup
+	sm := &safeMap{respMap: make(map[string]string)}
 
 	for _, matchType := range GetEloTypes() {
-		data := Payload{
-			Region:       "7",
-			Versus:       "players",
-			MatchType:    "unranked",
-			TeamSize:     matchType,
-			SearchPlayer: username,
-		}
+		var data Payload
 		if matchType == "Custom" {
 			data = Payload{
 				Region:       "7",
@@ -71,7 +75,16 @@ func QueryAll(username string) (UserElo, error) {
 				MatchType:    matchType,
 				SearchPlayer: username,
 			}
+		} else {
+			data = Payload{
+				Region:       "7",
+				Versus:       "players",
+				MatchType:    "unranked",
+				TeamSize:     matchType,
+				SearchPlayer: username,
+			}
 		}
+
 		wg.Add(1)
 		go func(mt string) {
 			if err := queryToMap(data, mt, sm); err != nil {
@@ -82,10 +95,10 @@ func QueryAll(username string) (UserElo, error) {
 	}
 	wg.Wait()
 
-	return UserElo{sm.respMap}, nil
+	return sm.respMap, nil
 }
 
-func queryToMap(data Payload, matchType string, sm safeMap) error {
+func queryToMap(data Payload, matchType string, sm *safeMap) error {
 	payloadBytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("error marshaling json payload: %w", err)
@@ -125,27 +138,9 @@ func queryToMap(data Payload, matchType string, sm safeMap) error {
 		return nil
 	}
 
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
+	sm.Lock()
+	defer sm.Unlock()
 	sm.respMap[matchType] = strconv.Itoa(respBodyJson.Items[0].Elo)
 
 	return nil
-}
-
-func Query(data Payload, matchType string) (string, error) {
-	sm := newSafeMap()
-
-	queryToMap(data, matchType, sm)
-
-	if elo, ok := sm.respMap[matchType]; ok {
-		return elo, nil
-	}
-	return "", fmt.Errorf("no elo value found for match type %s for username %s", matchType, data.SearchPlayer)
-}
-
-func newSafeMap() safeMap {
-	return safeMap{
-		respMap: make(map[string]string),
-		mu:      &sync.Mutex{},
-	}
 }

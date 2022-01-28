@@ -12,12 +12,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string, error) {
+func (us users) generateUpdateMessage(st *discordgo.State, guildId string) (string, error) {
 	var updateMessage strings.Builder
 	updateMessage.WriteString("Elo updated!\n\n")
 
-	for _, u := range us {
-		if fmt.Sprint(u.newElo.Elo) == fmt.Sprint(u.oldElo.Elo) {
+	for _, u := range us.Users {
+		if u.newElo == nil || fmt.Sprint(u.newElo) == fmt.Sprint(u.oldElo) {
 			continue
 		}
 
@@ -29,7 +29,7 @@ func formatUpdateMessage(st *discordgo.State, us []user, guildId string) (string
 		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
 
 		for _, eloT := range aoeapi.GetEloTypes() {
-			if oldElo, newElo := u.oldElo.Elo[eloT], u.newElo.Elo[eloT]; oldElo != newElo {
+			if oldElo, newElo := u.oldElo[eloT], u.newElo[eloT]; oldElo != newElo {
 				updateMessage.WriteString(fmt.Sprintln(eloT, "Elo:", oldElo, "->", newElo))
 			}
 		}
