@@ -8,37 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 	"github.com/bwmarrin/discordgo"
 )
-
-func (us users) generateUpdateMessage(st *discordgo.State, guildId string) (string, error) {
-	var updateMessage strings.Builder
-	updateMessage.WriteString("Elo updated!\n\n")
-
-	for _, u := range us.Users {
-		if u.newElo == nil || fmt.Sprint(u.newElo) == fmt.Sprint(u.oldElo) {
-			continue
-		}
-
-		member, err := st.Member(guildId, u.DiscordUserID)
-		if err != nil {
-			return "", fmt.Errorf("error retrieving member %s name: %w", u.DiscordUserID, err)
-		}
-
-		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
-
-		for _, eloT := range aoeapi.GetEloTypes() {
-			if oldElo, newElo := u.oldElo[eloT], u.newElo[eloT]; oldElo != newElo {
-				updateMessage.WriteString(fmt.Sprintln(eloT, "Elo:", oldElo, "->", newElo))
-			}
-		}
-
-		updateMessage.WriteByte('\n')
-	}
-
-	return strings.TrimSpace(updateMessage.String()), nil
-}
 
 func saveToConfig(m *discordgo.MessageCreate) (string, error) {
 	configBytes, err := configFileToBytes()
