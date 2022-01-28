@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 	"github.com/bwmarrin/discordgo"
+
+	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 )
 
 type users struct {
