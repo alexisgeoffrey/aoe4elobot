@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
 	"github.com/robfig/cron/v3"
-
-	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 )
 
 func init() {
