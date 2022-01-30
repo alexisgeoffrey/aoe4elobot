@@ -6,16 +6,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/alexisgeoffrey/aoe4api"
 	"github.com/bwmarrin/discordgo"
-
-	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 )
 
 type userElo map[string]string
 
 var cmdMutex sync.Mutex
-
-const configPath = "config/config.json"
 
 // MessageCreate is the handler for Discordgo MessageCreate events.
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -83,10 +80,18 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	updatedElo := make(map[string]userElo)
+	builder := aoe4api.NewRequestBuilder()
 	for _, u := range us.Users {
 		wg.Add(1)
 		go func(u user) {
-			memberElo, err := aoeapi.QueryAll(u.SteamUsername)
+			req, err := builder.
+				SetSearchPlayer(u.SteamUsername).
+				Request()
+			if err != nil {
+				fmt.Printf("error building api request: %v", err)
+			}
+
+			memberElo, err := req.QueryAllElo()
 			if err != nil {
 				fmt.Printf("error querying member Elo: %v", err)
 			}
@@ -115,4 +120,14 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	fmt.Println(updateMessage)
 
 	return updateMessage, nil
+}
+
+func getEloTypes() [5]string {
+	return [...]string{
+		"1v1",
+		"2v2",
+		"3v3",
+		"4v4",
+		"custom",
+	}
 }

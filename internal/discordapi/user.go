@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-
-	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 )
 
 type user struct {
@@ -35,8 +33,8 @@ func (u user) getMemberElo(st *discordgo.State, guildId string) (userElo, error)
 			return nil, fmt.Errorf("error getting role info: %w", err)
 		}
 
-		for _, eloT := range aoeapi.GetEloTypes() {
-			if strings.Contains(roleName, eloT+" Elo:") {
+		for _, eloT := range getEloTypes() {
+			if strings.Contains(roleName, strings.Title(eloT)+" Elo:") {
 				memberElo[eloT] = strings.Split(roleName, " ")[2]
 			}
 		}
