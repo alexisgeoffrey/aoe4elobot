@@ -17,7 +17,7 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 		if err != nil {
 			return fmt.Errorf("error retrieving guild member %s: %w", u.DiscordUserID, err)
 		}
-		roleSet := make(map[string]*discordgo.Role)
+		roleSet := map[string]*discordgo.Role{}
 		for _, roleId := range member.Roles {
 			role, err := s.State.Role(guildId, roleId)
 			if err != nil {

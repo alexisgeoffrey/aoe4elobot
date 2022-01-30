@@ -2,6 +2,7 @@ package discordapi
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -20,11 +21,11 @@ func (u user) getMemberElo(st *discordgo.State, guildId string) (userElo, error)
 		return nil, fmt.Errorf("error retrieving member: %w", err)
 	}
 
-	memberElo := make(map[string]string)
+	memberElo := map[string]string{}
 	for _, roleID := range member.Roles {
 		role, err := st.Role(guildId, roleID)
 		if err != nil {
-			fmt.Printf("error retrieving role %s for member %s: %v\n ", roleID, member.User.Username, err)
+			log.Printf("error retrieving role %s for member %s: %v\n ", roleID, member.User.Username, err)
 			continue
 		}
 

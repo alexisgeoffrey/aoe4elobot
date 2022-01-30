@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 )
@@ -78,7 +79,7 @@ func openOrCreateConfigFile() (*os.File, error) {
 	configFile, err := os.Open(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			fmt.Println("Config file does not exist. Creating file config.json")
+			log.Println("Config file does not exist. Creating file config.json")
 			jsonUsers, err := json.Marshal(users{Users: []user{}})
 			if err != nil {
 				return nil, fmt.Errorf("error marshaling json: %w", err)

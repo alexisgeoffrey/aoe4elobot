@@ -3,6 +3,7 @@ package discordapi
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -33,7 +34,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				m.ChannelID,
 				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`",
 				m.Reference())
-			fmt.Printf("error updating username: %v\n", err)
+			log.Printf("error updating username: %v\n", err)
 			return
 		}
 		// Send response as a reply to message
@@ -49,7 +50,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		updateMessage, err := UpdateAllElo(s, m.GuildID)
 		if err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
-			fmt.Printf("error updating elo: %v\n", err)
+			log.Printf("error updating elo: %v\n", err)
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, updateMessage)
@@ -59,7 +60,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 // UpdateAllElo retrieves and updates all Elo roles on the server specified by the guildId
 // parameter. It returns an update message containing all changed Elo values for each server member.
 func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
-	fmt.Println("Updating Elo...")
+	log.Println("Updating Elo...")
 
 	configBytes, err := configFileToBytes()
 	if err != nil {
@@ -81,7 +82,7 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	updatedElo := make(map[string]userElo)
+	updatedElo := make(map[string]userElo, len(us.Users))
 	builder := aoe4api.NewRequestBuilder().
 		SetUserAgent(UserAgent)
 	for _, u := range us.Users {
@@ -91,12 +92,12 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 				SetSearchPlayer(u.SteamUsername).
 				Request()
 			if err != nil {
-				fmt.Printf("error building api request: %v", err)
+				log.Printf("error building api request: %v", err)
 			}
 
 			memberElo, err := req.QueryAllElo()
 			if err != nil {
-				fmt.Printf("error querying member Elo: %v", err)
+				log.Printf("error querying member Elo: %v", err)
 			}
 			mu.Lock()
 			defer mu.Unlock()
@@ -120,7 +121,7 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 		return "", fmt.Errorf("error formatting update message: %w", err)
 	}
 
-	fmt.Println(updateMessage)
+	log.Println(updateMessage)
 
 	return updateMessage, nil
 }

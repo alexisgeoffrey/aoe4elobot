@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,7 +29,7 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
-		fmt.Printf("Error creating Discord session: %v\n", err)
+		log.Printf("Error creating Discord session: %v\n", err)
 		return
 	}
 
@@ -46,24 +47,24 @@ func main() {
 
 	c := cron.New()
 	_, err = c.AddFunc("@midnight", func() {
-		fmt.Println("Running scheduled Elo update.")
+		log.Println("Running scheduled Elo update.")
 
 		for _, g := range dg.State.Guilds {
 			if _, err := discordapi.UpdateAllElo(dg, g.ID); err != nil {
-				fmt.Printf("error updating elo on server %s: %v\n", g.ID, err)
+				log.Printf("error updating elo on server %s: %v\n", g.ID, err)
 			}
 		}
 
-		fmt.Println("Scheduled Elo update complete.")
+		log.Println("Scheduled Elo update complete.")
 	})
 	if err != nil {
-		fmt.Printf("error adding cron job: %v\n", err)
+		log.Printf("error adding cron job: %v\n", err)
 		return
 	}
 
 	// Open a websocket connection to Discord and begin listening.
 	if err := dg.Open(); err != nil {
-		fmt.Printf("error opening connection to Discord: %v\n", err)
+		log.Printf("error opening connection to Discord: %v\n", err)
 		return
 	}
 
