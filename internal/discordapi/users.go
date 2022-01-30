@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-
-	"github.com/alexisgeoffrey/aoe4elobot/pkg/aoeapi"
 )
 
 type users struct {
@@ -30,9 +28,9 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 			}
 		}
 
-		for _, eloType := range aoeapi.GetEloTypes() {
+		for _, eloType := range getEloTypes() {
 			if elo, ok := u.newElo[eloType]; ok && elo != u.oldElo[eloType] {
-				roleName := fmt.Sprintf("%s Elo: %s", eloType, elo)
+				roleName := fmt.Sprintf("%s Elo: %s", strings.Title(eloType), elo)
 				if role, ok := roleSet[eloType]; ok {
 					_, err = s.GuildRoleEdit(guildId, role.ID, roleName, 1, false, 0, false)
 					if err != nil {
@@ -73,9 +71,9 @@ func (us users) generateUpdateMessage(st *discordgo.State, guildId string) (stri
 
 		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
 
-		for _, eloT := range aoeapi.GetEloTypes() {
+		for _, eloT := range getEloTypes() {
 			if oldElo, newElo := u.oldElo[eloT], u.newElo[eloT]; oldElo != newElo {
-				updateMessage.WriteString(fmt.Sprintln(eloT, "Elo:", oldElo, "->", newElo))
+				updateMessage.WriteString(fmt.Sprintln(strings.Title(eloT), "Elo:", oldElo, "->", newElo))
 			}
 		}
 

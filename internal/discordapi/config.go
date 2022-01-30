@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const configPath = "config/config.json"
+
 func saveToConfig(content string, id string) (string, error) {
 	configBytes, err := configFileToBytes()
 	if err != nil {
