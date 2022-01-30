@@ -42,6 +42,8 @@ func main() {
 
 	dg.LogLevel = 2
 
+	dg.UserAgent = discordapi.UserAgent
+
 	c := cron.New()
 	_, err = c.AddFunc("@midnight", func() {
 		fmt.Println("Running scheduled Elo update.")

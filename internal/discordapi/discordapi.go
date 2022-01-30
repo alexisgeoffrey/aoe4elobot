@@ -12,6 +12,8 @@ import (
 
 type userElo map[string]string
 
+const UserAgent = "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
+
 var cmdMutex sync.Mutex
 
 // MessageCreate is the handler for Discordgo MessageCreate events.
@@ -80,7 +82,8 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	updatedElo := make(map[string]userElo)
-	builder := aoe4api.NewRequestBuilder()
+	builder := aoe4api.NewRequestBuilder().
+		SetUserAgent(UserAgent)
 	for _, u := range us.Users {
 		wg.Add(1)
 		go func(u user) {
