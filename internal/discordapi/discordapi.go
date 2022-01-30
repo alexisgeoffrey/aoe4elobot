@@ -87,10 +87,10 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 		SetUserAgent(UserAgent)
 	for _, u := range us.Users {
 		wg.Add(1)
+		req, err := builder.
+			SetSearchPlayer(u.SteamUsername).
+			Request()
 		go func(u user) {
-			req, err := builder.
-				SetSearchPlayer(u.SteamUsername).
-				Request()
 			if err != nil {
 				log.Printf("error building api request: %v", err)
 			}
