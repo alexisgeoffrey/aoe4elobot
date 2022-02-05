@@ -23,10 +23,13 @@ func saveToConfig(content string, id string) (string, string, error) {
 
 	input := strings.SplitN(content, " ", 2)
 	if len(input) <= 1 {
-		return "", "", errors.New("invalid input for info")
+		return "", "", fmt.Errorf("invalid input for info: %s", content)
 	}
 	infoInput := strings.Split(input[1], ",")
-	aoe4Username, aoe4Id := infoInput[0], strings.TrimSpace(infoInput[1])
+	if len(infoInput) <= 1 {
+		return "", "", fmt.Errorf("invalid input for info: %s", content)
+	}
+	aoe4Username, aoe4Id := strings.TrimSpace(infoInput[0]), strings.TrimSpace(infoInput[1])
 
 	// check if user is already in config file, if so, modify that entry
 	for i, u := range us.Users {
