@@ -24,23 +24,23 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "!setEloName") {
+	if strings.HasPrefix(m.Content, "!setEloInfo") {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		name, err := saveToConfig(m.Content, m.Author.ID)
+		name, id, err := saveToConfig(m.Content, m.Author.ID)
 		if err != nil {
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				"Your Steam username failed to update.\nUsage: `!setEloName Steam_username`",
+				"Your AOE4 info failed to update.\nUsage: `!setEloInfo aoe4_username, aoe4_id`",
 				m.Reference())
-			log.Printf("error updating username: %v\n", err)
+			log.Printf("error updating info: %v\n", err)
 			return
 		}
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(
 			m.ChannelID,
-			fmt.Sprintf("Steam username for %s has been updated to %s.", m.Author.Mention(), name),
+			fmt.Sprintf("%s's AOE4 username has been updated to %s and ID has been updated to %s.", m.Author.Mention(), name, id),
 			m.Reference())
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
 		cmdMutex.Lock()
@@ -88,14 +88,14 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	for _, u := range us.Users {
 		wg.Add(1)
 		req, err := builder.
-			SetSearchPlayer(u.SteamUsername).
+			SetSearchPlayer(u.Aoe4Username).
 			Request()
 		go func(u user) {
 			if err != nil {
 				log.Printf("error building api request: %v", err)
 			}
 
-			memberElo, err := req.QueryAllElo()
+			memberElo, err := req.QueryAllElo(u.Aoe4Id)
 			if err != nil {
 				log.Printf("error querying member Elo: %v", err)
 			}

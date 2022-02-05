@@ -24,7 +24,7 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 				return fmt.Errorf("error retrieving guild role %s: %w", roleId, err)
 			}
 			if strings.Contains(role.Name, "Elo:") {
-				roleSet[strings.Split(role.Name, " ")[0]] = role
+				roleSet[strings.ToLower(strings.Split(role.Name, " ")[0])] = role
 			}
 		}
 
