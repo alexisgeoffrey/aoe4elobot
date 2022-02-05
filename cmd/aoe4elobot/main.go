@@ -10,7 +10,6 @@ import (
 
 	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
-	"github.com/robfig/cron/v3"
 )
 
 func init() {
@@ -45,22 +44,23 @@ func main() {
 
 	dg.UserAgent = discordapi.UserAgent
 
-	c := cron.New()
-	_, err = c.AddFunc("@midnight", func() {
-		log.Println("Running scheduled Elo update.")
+	// c := cron.New()
+	// _, err = c.AddFunc("@midnight", func() {
+	// 	log.Println("Running scheduled Elo update.")
 
-		for _, g := range dg.State.Guilds {
-			if _, err := discordapi.UpdateAllElo(dg, g.ID); err != nil {
-				log.Printf("error updating elo on server %s: %v\n", g.ID, err)
-			}
-		}
+	// 	for _, g := range dg.State.Guilds {
+	// 		if updateMessage, err := discordapi.UpdateAllElo(dg, g.ID); err != nil {
+	// 			log.Printf("error updating elo on server %s: %v\n", g.ID, err)
+	// 		}
+	// 		dg.ChannelMessageSend(g.Channels[0].ID)
+	// 	}
 
-		log.Println("Scheduled Elo update complete.")
-	})
-	if err != nil {
-		log.Printf("error adding cron job: %v\n", err)
-		return
-	}
+	// 	log.Println("Scheduled Elo update complete.")
+	// })
+	// if err != nil {
+	// 	log.Printf("error adding cron job: %v\n", err)
+	// 	return
+	// }
 
 	// Open a websocket connection to Discord and begin listening.
 	if err := dg.Open(); err != nil {
@@ -68,7 +68,7 @@ func main() {
 		return
 	}
 
-	c.Start()
+	// c.Start()
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("AOE4 Elo Bot is now running. Press CTRL-C to exit.")
@@ -78,6 +78,6 @@ func main() {
 
 	// Cleanly close down the Cron job and Discord session.
 	fmt.Println("Shutting down...")
-	c.Stop()
+	// c.Stop()
 	dg.Close()
 }

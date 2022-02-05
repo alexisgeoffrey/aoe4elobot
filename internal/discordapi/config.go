@@ -12,10 +12,10 @@ import (
 
 const configPath = "config/config.json"
 
-func saveToConfig(content string, id string) (string, error) {
+func saveToConfig(content string, id string) (string, string, error) {
 	configBytes, err := configFileToBytes()
 	if err != nil {
-		return "", fmt.Errorf("error converting config file to bytes: %w", err)
+		return "", "", fmt.Errorf("error converting config file to bytes: %w", err)
 	}
 
 	var us users
@@ -23,20 +23,22 @@ func saveToConfig(content string, id string) (string, error) {
 
 	input := strings.SplitN(content, " ", 2)
 	if len(input) <= 1 {
-		return "", errors.New("invalid input for username")
+		return "", "", errors.New("invalid input for info")
 	}
-	steamUsername := input[1]
+	infoInput := strings.Split(input[1], ",")
+	aoe4Username, aoe4Id := infoInput[0], strings.TrimSpace(infoInput[1])
 
 	// check if user is already in config file, if so, modify that entry
 	for i, u := range us.Users {
 		if u.DiscordUserID == id {
-			us.Users[i].SteamUsername = steamUsername
+			us.Users[i].Aoe4Username = aoe4Username
+			us.Users[i].Aoe4Id = aoe4Id
 			jsonUsers, err := json.Marshal(us)
 			if err != nil {
-				return "", fmt.Errorf("error marshaling users: %w", err)
+				return "", "", fmt.Errorf("error marshaling users: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
-			return us.Users[i].SteamUsername, nil
+			return us.Users[i].Aoe4Username, us.Users[i].Aoe4Id, nil
 		}
 	}
 
@@ -45,19 +47,20 @@ func saveToConfig(content string, id string) (string, error) {
 		us.Users,
 		user{
 			DiscordUserID: id,
-			SteamUsername: steamUsername,
+			Aoe4Username:  aoe4Username,
+			Aoe4Id:        aoe4Id,
 		},
 	)
 	jsonUsers, err := json.Marshal(us)
 	if err != nil {
-		return "", fmt.Errorf("error marshaling users: %w", err)
+		return "", "", fmt.Errorf("error marshaling users: %w", err)
 	}
 
 	if err := os.WriteFile(configPath, jsonUsers, 0644); err != nil {
-		return "", fmt.Errorf("error writing to config file: %w", err)
+		return "", "", fmt.Errorf("error writing to config file: %w", err)
 	}
 
-	return steamUsername, nil
+	return aoe4Username, aoe4Id, nil
 }
 
 func configFileToBytes() ([]byte, error) {

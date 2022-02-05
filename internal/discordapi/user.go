@@ -10,7 +10,8 @@ import (
 
 type user struct {
 	DiscordUserID string `json:"discord_user_id"`
-	SteamUsername string `json:"steam_username"`
+	Aoe4Username  string `json:"aoe4_username"`
+	Aoe4Id        string `json:"aoe4_id"`
 	oldElo        userElo
 	newElo        userElo
 }
