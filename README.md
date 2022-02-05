@@ -50,7 +50,7 @@ volumes:
   config:
 ```
 ## Server Commands
-- `!setEloName STEAM_USERNAME` - Registers your Steam username in the bot to retrieve your Elo rating.
+- `!setEloInfo AOE4_USERNAME, AOE4_ID` - Registers your AOE4 username and ID in the bot to retrieve your Elo rating.
 - `!updateElo` - Manually updates Elo ratings for all registered members on the server.
 #
 Developed with [DiscordGo](https://github.com/bwmarrin/discordgo).
