@@ -12,5 +12,3 @@ require (
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed // indirect
 	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
 )
-
-replace github.com/alexisgeoffrey/aoe4api => ../aoe4api
