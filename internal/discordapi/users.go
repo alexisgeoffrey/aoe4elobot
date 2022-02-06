@@ -2,8 +2,10 @@ package discordapi
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
+	"github.com/alexisgeoffrey/aoe4api"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -12,6 +14,7 @@ type users struct {
 }
 
 func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
+	reorder := false
 	for _, u := range us.Users {
 		member, err := s.State.Member(guildId, u.DiscordUserID)
 		if err != nil {
@@ -48,10 +51,57 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 					if err := s.GuildMemberRoleAdd(guildId, u.DiscordUserID, role.ID); err != nil {
 						return fmt.Errorf("error adding guild role: %w", err)
 					}
+					reorder = true
 				}
 			}
 		}
 	}
+
+	if reorder {
+		g, err := s.State.Guild(guildId)
+		if err != nil {
+			return fmt.Errorf("error retrieving guild %s: %w", guildId, err)
+		}
+		s.State.Lock()
+		defer s.State.Unlock()
+		rs := make([]*discordgo.Role, 0, len(g.Roles))
+
+		for _, role := range g.Roles {
+			if strings.Contains(role.Name, "Elo:") {
+				rs = append(rs, role)
+			}
+		}
+
+		sort.SliceStable(rs, func(i, j int) bool {
+			matchSize := func(prefix string) aoe4api.TeamSize {
+				switch prefix {
+				case "1v1":
+					return aoe4api.OneVOne
+				case "2v2":
+					return aoe4api.TwoVTwo
+				case "3v3":
+					return aoe4api.ThreeVThree
+				case "4v4":
+					return aoe4api.FourVFour
+				case "Custom":
+					return 5
+				}
+				return 0
+			}
+
+			iPrefix, jPrefix := strings.Split(rs[i].Name, " ")[0], strings.Split(rs[j].Name, " ")[0]
+			return matchSize(iPrefix) > matchSize(jPrefix)
+		})
+
+		for i := range rs {
+			rs[i].Position = i
+		}
+
+		if _, err := s.GuildRoleReorder(guildId, rs); err != nil {
+			return fmt.Errorf("error reordering guild roles: %w", err)
+		}
+	}
+
 	return nil
 }
 
