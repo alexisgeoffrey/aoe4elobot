@@ -1,5 +1,5 @@
 # AOE 4 Elo Bot
-[![ci](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/Docker%20Build%20&%20Push/main?label=ci)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/build-push.yml)
+[![ci](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/ci?label=ci)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/ci.yml)
 [![CodeQL](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/CodeQL/main?label=code%20QL)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql-analysis.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexisgeoffrey/aoe4elobot)](https://goreportcard.com/report/github.com/alexisgeoffrey/aoe4elobot)
 
