@@ -40,7 +40,10 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Send response as a reply to message
 		s.ChannelMessageSendReply(
 			m.ChannelID,
-			fmt.Sprintf("%s's AOE4 username has been updated to %s and ID has been updated to %s.", m.Author.Mention(), name, id),
+			fmt.Sprintf("%s's AOE4 username has been updated to %s and ID has been updated to %s.",
+				m.Author.Mention(),
+				name,
+				id),
 			m.Reference())
 	} else if strings.HasPrefix(m.Content, "!updateElo") {
 		cmdMutex.Lock()
