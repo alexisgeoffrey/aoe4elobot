@@ -12,15 +12,7 @@ import (
 
 const configPath = "config/config.json"
 
-func saveToConfig(content string, id string) (string, string, error) {
-	configBytes, err := configFileToBytes()
-	if err != nil {
-		return "", "", fmt.Errorf("error converting config file to bytes: %w", err)
-	}
-
-	var us users
-	json.Unmarshal(configBytes, &us)
-
+func parseRegistration(content string, id string) (string, string, error) {
 	input := strings.SplitN(content, " ", 2)
 	if len(input) <= 1 {
 		return "", "", fmt.Errorf("invalid input for info: %s", content)
@@ -31,39 +23,54 @@ func saveToConfig(content string, id string) (string, string, error) {
 	}
 	aoe4Username, aoe4Id := strings.TrimSpace(infoInput[0]), strings.TrimSpace(infoInput[1])
 
+	registerUser := user{
+		DiscordUserID: id,
+		Aoe4Username:  aoe4Username,
+		Aoe4Id:        aoe4Id,
+	}
+
+	if err := saveToConfig(registerUser); err != nil {
+		return "", "", fmt.Errorf("error saving to config file: %w", err)
+	}
+
+	return aoe4Username, aoe4Id, nil
+}
+
+func saveToConfig(newU user) error {
+	configBytes, err := configFileToBytes()
+	if err != nil {
+		return fmt.Errorf("error converting config file to bytes: %w", err)
+	}
+
+	var us users
+	json.Unmarshal(configBytes, &us)
+
 	// check if user is already in config file, if so, modify that entry
 	for i, u := range us.Users {
-		if u.DiscordUserID == id {
-			us.Users[i].Aoe4Username = aoe4Username
-			us.Users[i].Aoe4Id = aoe4Id
+		if u.DiscordUserID == newU.DiscordUserID {
+			us.Users[i].Aoe4Username = newU.Aoe4Username
+			us.Users[i].Aoe4Id = newU.Aoe4Id
 			jsonUsers, err := json.Marshal(us)
 			if err != nil {
-				return "", "", fmt.Errorf("error marshaling users: %w", err)
+				return fmt.Errorf("error marshaling users: %w", err)
 			}
 			os.WriteFile(configPath, jsonUsers, 0644)
-			return us.Users[i].Aoe4Username, us.Users[i].Aoe4Id, nil
+			return nil
 		}
 	}
 
 	// if user is not in config file, create a new entry
-	us.Users = append(
-		us.Users,
-		user{
-			DiscordUserID: id,
-			Aoe4Username:  aoe4Username,
-			Aoe4Id:        aoe4Id,
-		},
-	)
+	us.Users = append(us.Users, newU)
 	jsonUsers, err := json.Marshal(us)
 	if err != nil {
-		return "", "", fmt.Errorf("error marshaling users: %w", err)
+		return fmt.Errorf("error marshaling users: %w", err)
 	}
 
 	if err := os.WriteFile(configPath, jsonUsers, 0644); err != nil {
-		return "", "", fmt.Errorf("error writing to config file: %w", err)
+		return fmt.Errorf("error writing to config file: %w", err)
 	}
 
-	return aoe4Username, aoe4Id, nil
+	return nil
 }
 
 func configFileToBytes() ([]byte, error) {

@@ -15,6 +15,8 @@ type userElo map[string]string
 
 const UserAgent = "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
 
+const usageString = "Usage: `!setEloInfo aoe4_username, aoe4_id`\nFind STEAMID64 @ https://steamid.io/lookup"
+
 var cmdMutex sync.Mutex
 
 // MessageCreate is the handler for Discordgo MessageCreate events.
@@ -24,15 +26,16 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "!setEloInfo") {
+	if strings.HasPrefix(strings.ToLower(m.Content), "!seteloinfo") {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		name, id, err := saveToConfig(m.Content, m.Author.ID)
+		name, id, err := parseRegistration(m.Content, m.Author.ID)
 		if err != nil {
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				"Your AOE4 info failed to update.\nUsage: `!setEloInfo aoe4_username, aoe4_id`",
+				fmt.Sprint("Your AOE4 info failed to update.\n",
+					usageString),
 				m.Reference())
 			log.Printf("error updating info: %v\n", err)
 			return
@@ -45,7 +48,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				name,
 				id),
 			m.Reference())
-	} else if strings.HasPrefix(m.Content, "!updateElo") {
+	} else if strings.HasPrefix(strings.ToLower(m.Content), "!updateelo") {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
@@ -57,6 +60,8 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, updateMessage)
+	} else if strings.HasPrefix(strings.ToLower(m.Content), "!elousage") {
+		s.ChannelMessageSend(m.ChannelID, usageString)
 	}
 }
 
@@ -75,12 +80,16 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 		return "", fmt.Errorf("error unmarshaling config bytes: %w", err)
 	}
 
+	// for i, u := range us.Users {
+	// 	memberElo, err := u.getMemberElo(s.State, guildId)
+	// 	if err != nil {
+	// 		return "", fmt.Errorf("error retrieving existing member roles: %w", err)
+	// 	}
+	// 	us.Users[i].OldElo = memberElo
+	// }
+
 	for i, u := range us.Users {
-		memberElo, err := u.getMemberElo(s.State, guildId)
-		if err != nil {
-			return "", fmt.Errorf("error retrieving existing member roles: %w", err)
-		}
-		us.Users[i].oldElo = memberElo
+		us.Users[i].OldElo = u.NewElo
 	}
 
 	var wg sync.WaitGroup
@@ -112,12 +121,13 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	wg.Wait()
 
 	for i, u := range us.Users {
-		us.Users[i].newElo = updatedElo[u.DiscordUserID]
+		us.Users[i].NewElo = updatedElo[u.DiscordUserID]
+		saveToConfig(u)
 	}
 
-	if err := us.updateAllEloRoles(s, guildId); err != nil {
-		return "", fmt.Errorf("error updating elo roles: %w", err)
-	}
+	// if err := us.updateAllEloRoles(s, guildId); err != nil {
+	// 	return "", fmt.Errorf("error updating elo roles: %w", err)
+	// }
 
 	updateMessage, err := us.generateUpdateMessage(s.State, guildId)
 	if err != nil {
