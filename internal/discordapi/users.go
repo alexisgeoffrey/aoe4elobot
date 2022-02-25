@@ -62,17 +62,17 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 		if err != nil {
 			return fmt.Errorf("error retrieving guild %s: %w", guildId, err)
 		}
-		s.State.Lock()
-		defer s.State.Unlock()
+		s.State.RLock()
+		defer s.State.RUnlock()
 		rs := make([]*discordgo.Role, 0, len(g.Roles))
 
 		for _, role := range g.Roles {
 			if strings.Contains(role.Name, "Elo:") {
-				rs = append(rs, role)
+				rs = append(rs, &discordgo.Role{ID: role.ID})
 			}
 		}
 
-		sort.SliceStable(rs, func(i, j int) bool {
+		sort.Slice(rs, func(i, j int) bool {
 			matchSize := func(prefix string) aoe4api.TeamSize {
 				switch prefix {
 				case "1v1":
@@ -93,8 +93,8 @@ func (us users) updateAllEloRoles(s *discordgo.Session, guildId string) error {
 			return matchSize(iPrefix) > matchSize(jPrefix)
 		})
 
-		for i := range rs {
-			rs[i].Position = i
+		for i, role := range rs {
+			role.Position = i
 		}
 
 		if _, err := s.GuildRoleReorder(guildId, rs); err != nil {
