@@ -60,7 +60,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 		s.ChannelMessageSend(m.ChannelID, updateMessage)
-	} else if strings.HasPrefix(strings.ToLower(m.Content), "!elousage") {
+	} else if strings.HasPrefix(strings.ToLower(m.Content), "!elohelp") {
 		s.ChannelMessageSend(m.ChannelID, usageString)
 	}
 }
