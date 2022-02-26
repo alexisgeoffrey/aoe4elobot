@@ -122,7 +122,7 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 
 	for i, u := range us.Users {
 		us.Users[i].NewElo = updatedElo[u.DiscordUserID]
-		saveToConfig(u)
+		saveToConfig(us.Users[i])
 	}
 
 	// if err := us.updateAllEloRoles(s, guildId); err != nil {

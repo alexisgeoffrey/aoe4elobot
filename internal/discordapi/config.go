@@ -50,6 +50,8 @@ func saveToConfig(newU user) error {
 		if u.DiscordUserID == newU.DiscordUserID {
 			us.Users[i].Aoe4Username = newU.Aoe4Username
 			us.Users[i].Aoe4Id = newU.Aoe4Id
+			us.Users[i].OldElo = newU.OldElo
+			us.Users[i].NewElo = newU.NewElo
 			jsonUsers, err := json.Marshal(us)
 			if err != nil {
 				return fmt.Errorf("error marshaling users: %w", err)
