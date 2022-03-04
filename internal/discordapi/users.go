@@ -117,7 +117,7 @@ func (us users) generateUpdateMessage(st *discordgo.State, guildId string) (stri
 			return "", fmt.Errorf("error retrieving member %s name: %w", u.DiscordUserID, err)
 		}
 
-		updateMessage.WriteString(fmt.Sprint(member.Mention(), ":\n"))
+		updateMessage.WriteString(fmt.Sprint(member.User.Username, ":\n"))
 
 		for _, eloT := range getEloTypes() {
 			if oldElo, newElo := u.OldElo[eloT], u.NewElo[eloT]; oldElo != newElo {

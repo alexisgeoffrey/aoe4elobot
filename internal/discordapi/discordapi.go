@@ -121,7 +121,20 @@ func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
 	wg.Wait()
 
 	for i, u := range us.Users {
-		us.Users[i].NewElo = updatedElo[u.DiscordUserID]
+		if updatedElo[u.DiscordUserID] == nil {
+			us.Users[i].NewElo = u.OldElo
+		} else {
+			for _, eloType := range getEloTypes() {
+				if elo, ok := updatedElo[u.DiscordUserID][eloType]; ok {
+					us.Users[i].NewElo[eloType] = elo
+				} else {
+					if oldElo, ok := u.OldElo[eloType]; ok {
+						us.Users[i].NewElo[eloType] = oldElo
+					}
+				}
+			}
+			// us.Users[i].NewElo = updatedElo[u.DiscordUserID]
+		}
 		saveToConfig(us.Users[i])
 	}
 
