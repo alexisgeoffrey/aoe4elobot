@@ -1,8 +1,6 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
-github.com/alexisgeoffrey/aoe4api v0.2.1 h1:jG5gNNrFY0eQcqODB7pU+w/tBPHhmSlG3dYVUBAZ0cI=
-github.com/alexisgeoffrey/aoe4api v0.2.1/go.mod h1:9FM0SBVITrXoxSCFCzPOmaugrgZYLuDOsSPhD2PGrNQ=
 github.com/bwmarrin/discordgo v0.24.0 h1:Gw4MYxqHdvhO99A3nXnSLy97z5pmIKHZVJ1JY5ZDPqY=
 github.com/bwmarrin/discordgo v0.24.0/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
