@@ -25,7 +25,60 @@ func registerUser(username string, aoeId string, discordId string, guildId strin
 			return fmt.Errorf("error inserting user in db: %v", err)
 		}
 	}
+
 	return nil
+}
+
+func updateUser(discordId string, guildId string, elo userElo) error {
+	updateUser, err := Db.Exec(context.Background(),
+		`update users set elo_1v1 = $1, elo_2v2 = $2, elo_3v3 = $3, elo_4v4 = $4, elo_custom = $5
+		where discord_id = $6 and guild_id = $7`,
+		elo.oneVOne, elo.twoVTwo, elo.threeVThree, elo.fourVFour, elo.custom, discordId, guildId)
+	if err != nil {
+		return fmt.Errorf("error updating user in db: %v", err)
+	}
+	if updateUser.RowsAffected() != 1 {
+		return fmt.Errorf("user not found")
+	}
+
+	return nil
+}
+
+func getUser(discordId string, guildId string) (user, error) {
+	row := Db.QueryRow(context.Background(), "select * from users where discord_id = $1 and guild_id = $2", discordId, guildId)
+
+	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
+	u := user{}
+	if err := row.Scan(
+		&u.discordUserID,
+		&u.aoe4Username,
+		nil,
+		&u.aoe4Id,
+		&oneVOne,
+		&twoVTwo,
+		&threeVThree,
+		&fourVFour,
+		&custom); err != nil {
+		return user{}, err
+	}
+
+	if Config.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
+		u.oldElo.oneVOne = oneVOne.Int
+	}
+	if Config.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
+		u.oldElo.twoVTwo = twoVTwo.Int
+	}
+	if Config.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
+		u.oldElo.threeVThree = threeVThree.Int
+	}
+	if Config.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
+		u.oldElo.fourVFour = fourVFour.Int
+	}
+	if Config.Custom.Enabled && custom.Status == pgtype.Present {
+		u.oldElo.custom = custom.Int
+	}
+
+	return u, nil
 }
 
 func getUsers(guildId string) ([]user, error) {
@@ -36,9 +89,9 @@ func getUsers(guildId string) ([]user, error) {
 	defer rows.Close()
 
 	var users []user
-	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
 
 	for rows.Next() {
+		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
 		u := user{}
 		if err := rows.Scan(
 			&u.discordUserID,

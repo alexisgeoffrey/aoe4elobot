@@ -34,8 +34,8 @@ func setupDb(db *pgxpool.Pool) error {
 		`create table if not exists users(
 		discord_id	varchar(20) primary key,
 		username	text not null,
-		guild_id	char(20) not null,
-		aoe_id		char(40) not null,
+		guild_id	varchar(20) not null,
+		aoe_id		varchar(40) not null,
 		elo_1v1		int,
 		elo_2v2		int,
 		elo_3v3		int,
@@ -49,9 +49,13 @@ func setupDb(db *pgxpool.Pool) error {
 }
 
 func genConfig(path string) error {
-	discordapi.Config.OneVOne.Enabled = true
-	discordapi.Config.OneVOne.Roles = sampleEloRoles
+	discordapi.Config.OneVOne = &discordapi.EloType{Enabled: true, Roles: sampleEloRoles}
+	discordapi.Config.TwoVTwo = &discordapi.EloType{}
+	discordapi.Config.ThreeVThree = &discordapi.EloType{}
+	discordapi.Config.FourVFour = &discordapi.EloType{}
+	discordapi.Config.Custom = &discordapi.EloType{}
 	discordapi.Config.AdminRoles = sampleAdminRoles
+	discordapi.Config.BotChannelId = "botChannelId"
 
 	file, err := os.Create(path)
 	if err != nil {
@@ -72,20 +76,19 @@ func genConfig(path string) error {
 	return nil
 }
 
-// func eloUpdateCron(dg *discordgo.Session) {
-// 	log.Println("Running scheduled Elo update.")
+func eloUpdateCron(dg *discordgo.Session) {
+	log.Println("Running scheduled Elo update.")
 
-// 	for _, g := range getGuilds(dg.State) {
-// 		updateMessage, err := discordapi.UpdateAllElo(dg, g.ID)
-// 		if err != nil {
-// 			log.Printf("error updating elo on server %s: %v\n", g.ID, err)
-// 			continue
-// 		}
-// 		dg.ChannelMessageSend(g.Channels[0].ID, updateMessage)
-// 	}
+	for _, g := range getGuilds(dg.State) {
+		err := discordapi.UpdateAllElo(dg, g.ID)
+		if err != nil {
+			log.Printf("error updating elo on server %s: %v\n", g.ID, err)
+			continue
+		}
+	}
 
-// 	log.Println("Scheduled Elo update complete.")
-// }
+	log.Println("Scheduled Elo update complete.")
+}
 
 func getGuilds(st *discordgo.State) (guilds []*discordgo.Guild) {
 	st.RLock()

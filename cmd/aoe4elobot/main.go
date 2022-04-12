@@ -30,6 +30,28 @@ func main() {
 		log.Fatalf("error reading config file: %v\n", err)
 	}
 
+	discordapi.EloTypes = []*discordapi.EloType{
+		discordapi.Config.OneVOne,
+		discordapi.Config.TwoVTwo,
+		discordapi.Config.ThreeVThree,
+		discordapi.Config.FourVFour,
+		discordapi.Config.Custom,
+	}
+
+	for _, roleSet := range discordapi.EloTypes {
+		if roleSet.Enabled {
+			roleSet.RoleMap = make(map[string]bool, len(roleSet.Roles))
+			for _, role := range roleSet.Roles {
+				roleSet.RoleMap[role.RoleId] = true
+			}
+		}
+	}
+
+	discordapi.Config.AdminRolesMap = make(map[string]bool, len(discordapi.Config.AdminRoles))
+	for _, role := range discordapi.Config.AdminRoles {
+		discordapi.Config.AdminRolesMap[role] = true
+	}
+
 	// Open connection to user database
 	discordapi.Db, err = pgxpool.Connect(context.Background(), discordapi.Config.DbUrl)
 	if err != nil {
@@ -62,9 +84,9 @@ func main() {
 	}
 
 	c := cron.New()
-	// if _, err = c.AddFunc("0 */2 * * *", func() { eloUpdateCron(dg) }); err != nil {
-	// 	log.Fatalf("error adding cron job: %v\n", err)
-	// }
+	if _, err = c.AddFunc("0 */2 * * *", func() { eloUpdateCron(dg) }); err != nil {
+		log.Fatalf("error adding cron job: %v\n", err)
+	}
 	c.Start()
 
 	// Wait here until CTRL-C or other term signal is received.
