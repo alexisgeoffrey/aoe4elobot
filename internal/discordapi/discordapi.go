@@ -1,19 +1,18 @@
 package discordapi
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 	"sync"
 
-	"github.com/alexisgeoffrey/aoe4api"
 	"github.com/bwmarrin/discordgo"
 )
 
-type userElo map[string]string
-
-const UserAgent = "AOE 4 Elo Bot/0.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
+const (
+	UserAgent   = "AOE 4 Elo Bot/2.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
+	usageString = "Usage: `!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID`\nFind STEAMID64 @ https://steamid.io/lookup"
+)
 
 var cmdMutex sync.Mutex
 
@@ -24,17 +23,38 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if strings.HasPrefix(m.Content, "!setEloInfo") {
+	switch lowerMessage := strings.ToLower(m.Content); {
+	case // !setEloInfo
+		strings.HasPrefix(lowerMessage, "!seteloinfo "),
+		strings.HasPrefix(lowerMessage, "!set "),
+		strings.HasPrefix(lowerMessage, "!link "):
+
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		name, id, err := saveToConfig(m.Content, m.Author.ID)
-		if err != nil {
+		setEloInfoError := func(err error) {
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				"Your AOE4 info failed to update.\nUsage: `!setEloInfo aoe4_username, aoe4_id`",
+				fmt.Sprint("Your AOE4 info failed to update.\n", usageString),
 				m.Reference())
 			log.Printf("error updating info: %v\n", err)
+		}
+
+		input := strings.SplitN(m.Content, " ", 2)
+		if len(input) <= 1 {
+			setEloInfoError(fmt.Errorf("invalid input for info: %s", m.Content))
+			return
+		}
+		infoInput := strings.Split(input[1], ",")
+		if len(infoInput) <= 1 {
+			setEloInfoError(fmt.Errorf("invalid input for info: %s", m.Content))
+			return
+		}
+		aoe4Username, aoe4Id := strings.TrimSpace(infoInput[0]), strings.TrimSpace(infoInput[1])
+
+		err := registerUser(aoe4Username, aoe4Id, m.Author.ID, m.GuildID)
+		if err != nil {
+			setEloInfoError(err)
 			return
 		}
 		// Send response as a reply to message
@@ -42,99 +62,98 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			m.ChannelID,
 			fmt.Sprintf("%s's AOE4 username has been updated to %s and ID has been updated to %s.",
 				m.Author.Mention(),
-				name,
-				id),
+				aoe4Username,
+				aoe4Id),
 			m.Reference())
-	} else if strings.HasPrefix(m.Content, "!updateElo") {
-		cmdMutex.Lock()
-		defer cmdMutex.Unlock()
 
-		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
-		updateMessage, err := UpdateAllElo(s, m.GuildID)
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
-			log.Printf("error updating elo: %v\n", err)
-			return
-		}
-		s.ChannelMessageSend(m.ChannelID, updateMessage)
+	// case // !updateElo
+	// 	lowerMessage == "!updateelo",
+	// 	lowerMessage == "!update",
+	// 	lowerMessage == "!u":
+	// 	cmdMutex.Lock()
+	// 	defer cmdMutex.Unlock()
+
+	// 	s.ChannelMessageSend(m.ChannelID, "Updating elo...")
+	// 	if err := UpdateAllElo(s, m.GuildID); err != nil {
+	// 		s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
+	// 		log.Printf("error updating elo: %v\n", err)
+	// 		return
+	// 	}
+
+	case // !eloInfo
+		strings.HasPrefix(lowerMessage, "!eloinfo"),
+		strings.HasPrefix(lowerMessage, "!info"):
+
+	case // !help
+		lowerMessage == "!help",
+		lowerMessage == "!h":
+
+		s.ChannelMessageSend(m.ChannelID, usageString)
 	}
 }
 
 // UpdateAllElo retrieves and updates all Elo roles on the server specified by the guildId
 // parameter. It returns an update message containing all changed Elo values for each server member.
-func UpdateAllElo(s *discordgo.Session, guildId string) (string, error) {
-	log.Println("Updating Elo...")
+// func UpdateAllElo(s *discordgo.Session, guildId string) error {
+// 	log.Println("Updating Elo...")
 
-	configBytes, err := configFileToBytes()
-	if err != nil {
-		return "", fmt.Errorf("error converting config file to bytes: %w", err)
-	}
+// 	users, err := getUsers(guildId)
+// 	if err != nil {
+// 		return fmt.Errorf("error getting users: %v", err)
+// 	}
 
-	var us users
-	if err := json.Unmarshal(configBytes, &us); err != nil {
-		return "", fmt.Errorf("error unmarshaling config bytes: %w", err)
-	}
+// 	var wg sync.WaitGroup
+// 	var mu sync.Mutex
 
-	for i, u := range us.Users {
-		memberElo, err := u.getMemberElo(s.State, guildId)
-		if err != nil {
-			return "", fmt.Errorf("error retrieving existing member roles: %w", err)
-		}
-		us.Users[i].oldElo = memberElo
-	}
+// 	builder := aoe4api.NewRequestBuilder().
+// 		SetUserAgent(UserAgent)
 
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	updatedElo := make(map[string]userElo, len(us.Users))
-	builder := aoe4api.NewRequestBuilder().
-		SetUserAgent(UserAgent)
-	for _, u := range us.Users {
-		wg.Add(1)
-		req, err := builder.
-			SetSearchPlayer(u.Aoe4Username).
-			Request()
-		go func(u user) {
-			if err != nil {
-				log.Printf("error building api request: %v", err)
-			}
+// 	getElo := func(u user, eloField *int32, teamSize aoe4api.TeamSize) error {
+// 		req, err := builder.SetSearchPlayer(u.aoe4Username).
+// 			SetTeamSize(teamSize).
+// 			Request()
+// 		if err != nil {
+// 			return fmt.Errorf("error building request: %v", err)
+// 		}
+// 		wg.Add(1)
+// 		go func() {
+// 			defer wg.Done()
 
-			memberElo, err := req.QueryAllElo(u.Aoe4Id)
-			if err != nil {
-				log.Printf("error querying member Elo: %v", err)
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			updatedElo[u.DiscordUserID] = memberElo
+// 			memberElo, err := req.QueryElo(u.aoe4Id)
+// 			if err != nil {
+// 				fmt.Printf("error querying member Elo: %v\n", err)
+// 			}
 
-			wg.Done()
-		}(u)
-	}
-	wg.Wait()
+// 			mu.Lock()
+// 			defer mu.Unlock()
+// 			*eloField = memberElo
+// 		}()
 
-	for i, u := range us.Users {
-		us.Users[i].newElo = updatedElo[u.DiscordUserID]
-	}
+// 		return nil
+// 	}
 
-	if err := us.updateAllEloRoles(s, guildId); err != nil {
-		return "", fmt.Errorf("error updating elo roles: %w", err)
-	}
+// 	for i, u := range users {
+// 		if Config.OneVOne.Enabled {
+// 			getElo(u, &users[i].newElo.oneVOne, aoe4api.OneVOne)
+// 		}
+// 		if Config.TwoVTwo.Enabled {
+// 			getElo(u, &users[i].newElo.twoVTwo, aoe4api.TwoVTwo)
+// 		}
+// 		if Config.ThreeVThree.Enabled {
+// 			getElo(u, &users[i].newElo.threeVThree, aoe4api.ThreeVThree)
+// 		}
+// 		if Config.FourVFour.Enabled {
+// 			getElo(u, &users[i].newElo.fourVFour, aoe4api.FourVFour)
+// 		}
+// 		if Config.Custom.Enabled {
+// 			getElo(u, &users[i].newElo.custom, 5)
+// 		}
+// 	}
+// 	wg.Wait()
 
-	updateMessage, err := us.generateUpdateMessage(s.State, guildId)
-	if err != nil {
-		return "", fmt.Errorf("error formatting update message: %w", err)
-	}
+// 	if err := updateAllEloRoles(users, s, guildId); err != nil {
+// 		return fmt.Errorf("error updating elo roles: %w", err)
+// 	}
 
-	log.Println(updateMessage)
-
-	return updateMessage, nil
-}
-
-func getEloTypes() [5]string {
-	return [...]string{
-		"1v1",
-		"2v2",
-		"3v3",
-		"4v4",
-		"custom",
-	}
-}
+// 	return nil
+// }

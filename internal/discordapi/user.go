@@ -1,46 +1,48 @@
 package discordapi
 
-import (
-	"fmt"
-	"log"
-	"strings"
+type (
+	user struct {
+		discordUserID string
+		aoe4Username  string
+		aoe4Id        string
+		oldElo        userElo
+		newElo        userElo
+	}
 
-	"github.com/bwmarrin/discordgo"
+	userElo struct {
+		oneVOne     int32
+		twoVTwo     int32
+		threeVThree int32
+		fourVFour   int32
+		custom      int32
+	}
 )
 
-type user struct {
-	DiscordUserID string `json:"discord_user_id"`
-	Aoe4Username  string `json:"aoe4_username"`
-	Aoe4Id        string `json:"aoe4_id"`
-	oldElo        userElo
-	newElo        userElo
-}
+// func (u user) getMemberElo(st *discordgo.State, guildId string) (userElo, error) {
+// 	member, err := st.Member(guildId, u.discordUserID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error retrieving member: %w", err)
+// 	}
 
-func (u user) getMemberElo(st *discordgo.State, guildId string) (userElo, error) {
-	member, err := st.Member(guildId, u.DiscordUserID)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving member: %w", err)
-	}
+// 	memberElo := map[string]string{}
+// 	for _, roleID := range member.Roles {
+// 		role, err := st.Role(guildId, roleID)
+// 		if err != nil {
+// 			log.Printf("error retrieving role %s for member %s: %v\n ", roleID, member.User.Username, err)
+// 			continue
+// 		}
 
-	memberElo := map[string]string{}
-	for _, roleID := range member.Roles {
-		role, err := st.Role(guildId, roleID)
-		if err != nil {
-			log.Printf("error retrieving role %s for member %s: %v\n ", roleID, member.User.Username, err)
-			continue
-		}
+// 		roleName := role.Name
+// 		if err != nil {
+// 			return nil, fmt.Errorf("error getting role info: %w", err)
+// 		}
 
-		roleName := role.Name
-		if err != nil {
-			return nil, fmt.Errorf("error getting role info: %w", err)
-		}
+// 		for _, eloT := range getEloTypes() {
+// 			if strings.Contains(roleName, cases.Title(language.English).String(eloT)+" Elo:") {
+// 				memberElo[eloT] = strings.Split(roleName, " ")[2]
+// 			}
+// 		}
+// 	}
 
-		for _, eloT := range getEloTypes() {
-			if strings.Contains(roleName, strings.Title(eloT)+" Elo:") {
-				memberElo[eloT] = strings.Split(roleName, " ")[2]
-			}
-		}
-	}
-
-	return memberElo, nil
-}
+// 	return memberElo, nil
+// }
