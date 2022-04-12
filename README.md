@@ -33,7 +33,7 @@ $ sudo docker volume create aoe4elobot-config
 Finally, run the image, replacing `token` and `id` with the proper values:
 ```bash
 $ sudo docker run -v aoe4elobot-config:/app/config \
-  -e AOE4ELO_TOKEN=token \
+  -e BOT_TOKEN=token \
   aoe4elobot
 ```
 Alternatively, Docker Compose can be used. Here is a sample `docker-compose.yml`:
@@ -43,7 +43,7 @@ services:
     image: aoe4elobot
     container_name: aoe4elobot
     environment:
-      - AOE4ELO_TOKEN=token
+      - BOT_TOKEN=token
     volumes:
       - config:/app/config
 volumes:
