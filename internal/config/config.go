@@ -68,7 +68,7 @@ func init() {
 	err := cleanenv.ReadConfig(configPath, &Config)
 	if errors.Is(err, os.ErrNotExist) {
 		genConfig(configPath)
-		return
+		os.Exit(1)
 	} else if err != nil {
 		log.Fatalf("error reading config file: %v\n", err)
 	}
