@@ -12,15 +12,16 @@ import (
 func setupDb(db *pgxpool.Pool) error {
 	if _, err := db.Exec(context.Background(),
 		`create table if not exists users(
-		discord_id	varchar(20) primary key,
+		discord_id	varchar(20),
 		username	text not null,
-		guild_id	varchar(20) not null,
+		guild_id	varchar(20),
 		aoe_id		varchar(40) not null,
 		elo_1v1		int,
 		elo_2v2		int,
 		elo_3v3		int,
 		elo_4v4		int,
-		elo_custom	int
+		elo_custom	int,
+		primary key(discord_id, guild_id)
 		)`); err != nil {
 		return err
 	}
