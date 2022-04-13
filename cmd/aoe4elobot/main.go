@@ -2,58 +2,23 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
 	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
-	"github.com/ilyakaznacheev/cleanenv"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	configPath := os.Getenv("CONFIG_PATH")
-	if configPath == "" {
-		configPath = "config.yml"
-	}
-
-	err := cleanenv.ReadConfig(configPath, &discordapi.Config)
-	if errors.Is(err, os.ErrNotExist) {
-		genConfig(configPath)
-		return
-	} else if err != nil {
-		log.Fatalf("error reading config file: %v\n", err)
-	}
-
-	discordapi.EloTypes = []*discordapi.EloType{
-		discordapi.Config.OneVOne,
-		discordapi.Config.TwoVTwo,
-		discordapi.Config.ThreeVThree,
-		discordapi.Config.FourVFour,
-		discordapi.Config.Custom,
-	}
-
-	for _, roleSet := range discordapi.EloTypes {
-		if roleSet.Enabled {
-			roleSet.RoleMap = make(map[string]bool, len(roleSet.Roles))
-			for _, role := range roleSet.Roles {
-				roleSet.RoleMap[role.RoleId] = true
-			}
-		}
-	}
-
-	discordapi.Config.AdminRolesMap = make(map[string]bool, len(discordapi.Config.AdminRoles))
-	for _, role := range discordapi.Config.AdminRoles {
-		discordapi.Config.AdminRolesMap[role] = true
-	}
-
+	var err error
 	// Open connection to user database
-	discordapi.Db, err = pgxpool.Connect(context.Background(), discordapi.Config.DbUrl)
+	discordapi.Db, err = pgxpool.Connect(context.Background(), config.Config.DbUrl)
 	if err != nil {
 		log.Fatalf("error connecting to database: %v\n", err)
 	}
@@ -63,7 +28,7 @@ func main() {
 	}
 
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + discordapi.Config.BotToken)
+	dg, err := discordgo.New("Bot " + config.Config.BotToken)
 	if err != nil {
 		log.Fatalf("error creating Discord session: %v\n", err)
 	}

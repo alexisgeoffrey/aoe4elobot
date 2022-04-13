@@ -3,6 +3,8 @@ package discordapi
 import (
 	"fmt"
 	"strings"
+
+	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
 )
 
 type userElo struct {
@@ -13,11 +15,9 @@ type userElo struct {
 	custom      int32
 }
 
-var eloLabels = []string{"1v1", "2v2", "3v3", "4v4", "Custom"}
-
-func (elo *userElo) generateEloString(mention string) string {
+func (elo *userElo) generateEloString(name string) string {
 	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("%s:\n", mention))
+	builder.WriteString(fmt.Sprintf("%s:\n", name))
 
 	eloVals := []int32{
 		elo.oneVOne,
@@ -27,7 +27,8 @@ func (elo *userElo) generateEloString(mention string) string {
 		elo.custom,
 	}
 
-	for i, et := range EloTypes {
+	eloLabels := getEloLabels()
+	for i, et := range config.GetEloTypes() {
 		if et.Enabled && eloVals[i] != 0 {
 			builder.WriteString(fmt.Sprintf("%s: %d\n", eloLabels[i], eloVals[i]))
 		} else if et.Enabled {
@@ -36,4 +37,8 @@ func (elo *userElo) generateEloString(mention string) string {
 	}
 
 	return builder.String()
+}
+
+func getEloLabels() []string {
+	return []string{"1v1", "2v2", "3v3", "4v4", "Custom"}
 }

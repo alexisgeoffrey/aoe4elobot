@@ -2,31 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"gopkg.in/yaml.v3"
-)
-
-var (
-	sampleEloRoles = []*discordapi.EloRole{
-		{
-			RoleId:      "eloRoleId1",
-			StartingElo: 500,
-			EndingElo:   1000,
-		},
-		{
-			RoleId:      "eloRoleId2",
-			StartingElo: 1001,
-			EndingElo:   2000,
-		},
-	}
-
-	sampleAdminRoles = []string{"adminRoleId1", "adminRoleId2"}
 )
 
 func setupDb(db *pgxpool.Pool) error {
@@ -45,34 +25,6 @@ func setupDb(db *pgxpool.Pool) error {
 		return err
 	}
 
-	return nil
-}
-
-func genConfig(path string) error {
-	discordapi.Config.OneVOne = &discordapi.EloType{Enabled: true, Roles: sampleEloRoles}
-	discordapi.Config.TwoVTwo = &discordapi.EloType{}
-	discordapi.Config.ThreeVThree = &discordapi.EloType{}
-	discordapi.Config.FourVFour = &discordapi.EloType{}
-	discordapi.Config.Custom = &discordapi.EloType{}
-	discordapi.Config.AdminRoles = sampleAdminRoles
-	discordapi.Config.BotChannelId = "botChannelId"
-
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("error creating config file: %v", err)
-	}
-	defer file.Close()
-
-	yamlBytes, err := yaml.Marshal(&discordapi.Config)
-	if err != nil {
-		return fmt.Errorf("error marshaling yaml struct: %v", err)
-	}
-
-	if _, err := file.Write(yamlBytes); err != nil {
-		return fmt.Errorf("error writing config file: %v", err)
-	}
-
-	log.Println("Config file does not exist. Creating...")
 	return nil
 }
 

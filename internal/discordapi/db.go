@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
@@ -62,33 +63,33 @@ func getUser(discordId string, guildId string) (user, error) {
 		return user{}, err
 	}
 
-	if Config.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
-		u.oldElo.oneVOne = oneVOne.Int
+	if config.Config.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
+		u.currentElo.oneVOne = oneVOne.Int
 	}
-	if Config.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
-		u.oldElo.twoVTwo = twoVTwo.Int
+	if config.Config.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
+		u.currentElo.twoVTwo = twoVTwo.Int
 	}
-	if Config.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
-		u.oldElo.threeVThree = threeVThree.Int
+	if config.Config.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
+		u.currentElo.threeVThree = threeVThree.Int
 	}
-	if Config.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
-		u.oldElo.fourVFour = fourVFour.Int
+	if config.Config.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
+		u.currentElo.fourVFour = fourVFour.Int
 	}
-	if Config.Custom.Enabled && custom.Status == pgtype.Present {
-		u.oldElo.custom = custom.Int
+	if config.Config.Custom.Enabled && custom.Status == pgtype.Present {
+		u.currentElo.custom = custom.Int
 	}
 
 	return u, nil
 }
 
-func getUsers(guildId string) ([]user, error) {
+func getUsers(guildId string) ([]*user, error) {
 	rows, err := Db.Query(context.Background(), "select * from users where guild_id = $1", guildId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []user
+	var users []*user
 
 	for rows.Next() {
 		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
@@ -106,23 +107,23 @@ func getUsers(guildId string) ([]user, error) {
 			return nil, err
 		}
 
-		if Config.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
-			u.oldElo.oneVOne = oneVOne.Int
+		if config.Config.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
+			u.currentElo.oneVOne = oneVOne.Int
 		}
-		if Config.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
-			u.oldElo.twoVTwo = twoVTwo.Int
+		if config.Config.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
+			u.currentElo.twoVTwo = twoVTwo.Int
 		}
-		if Config.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
-			u.oldElo.threeVThree = threeVThree.Int
+		if config.Config.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
+			u.currentElo.threeVThree = threeVThree.Int
 		}
-		if Config.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
-			u.oldElo.fourVFour = fourVFour.Int
+		if config.Config.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
+			u.currentElo.fourVFour = fourVFour.Int
 		}
-		if Config.Custom.Enabled && custom.Status == pgtype.Present {
-			u.oldElo.custom = custom.Int
+		if config.Config.Custom.Enabled && custom.Status == pgtype.Present {
+			u.currentElo.custom = custom.Int
 		}
 
-		users = append(users, u)
+		users = append(users, &u)
 	}
 
 	return users, nil

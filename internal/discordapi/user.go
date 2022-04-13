@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/alexisgeoffrey/aoe4api"
+	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -13,11 +14,11 @@ type user struct {
 	discordUserID string
 	aoe4Username  string
 	aoe4Id        string
-	oldElo        userElo
+	currentElo    userElo
 	newElo        userElo
 }
 
-func updateAllEloRoles(us []user, s *discordgo.Session, guildId string) error {
+func updateAllEloRoles(us []*user, s *discordgo.Session, guildId string) error {
 	for _, u := range us {
 		if err := u.updateMemberEloRoles(s, guildId); err != nil {
 			return fmt.Errorf("error getting member elo: %v", err)
@@ -28,86 +29,62 @@ func updateAllEloRoles(us []user, s *discordgo.Session, guildId string) error {
 }
 
 func (u user) updateMemberEloRoles(s *discordgo.Session, guildId string) error {
+	eloTypes := config.GetEloTypes()
 	oldNewElo := []struct {
 		oldElo int32
 		newElo int32
 	}{
-		{u.oldElo.oneVOne, u.newElo.oneVOne},
-		{u.oldElo.twoVTwo, u.newElo.twoVTwo},
-		{u.oldElo.threeVThree, u.newElo.threeVThree},
-		{u.oldElo.fourVFour, u.newElo.fourVFour},
-		{u.oldElo.custom, u.newElo.custom},
+		{u.currentElo.oneVOne, u.newElo.oneVOne},
+		{u.currentElo.twoVTwo, u.newElo.twoVTwo},
+		{u.currentElo.threeVThree, u.newElo.threeVThree},
+		{u.currentElo.fourVFour, u.newElo.fourVFour},
+		{u.currentElo.custom, u.newElo.custom},
 	}
+	var highestElo int32
 	for i, elo := range oldNewElo {
-		if EloTypes[i].Enabled && elo.oldElo != elo.newElo {
-			for _, role := range EloTypes[i].Roles {
-				if elo.newElo >= role.StartingElo && elo.newElo <= role.EndingElo {
-					member, err := s.State.Member(guildId, u.discordUserID)
+		if eloTypes[i].Enabled && elo.newElo > highestElo {
+			highestElo = elo.newElo
+		}
+	}
+
+eloTypeLoop:
+	for _, eloType := range eloTypes {
+		for _, role := range eloType.Roles {
+			if highestElo >= role.StartingElo && highestElo <= role.EndingElo {
+				member, err := s.State.Member(guildId, u.discordUserID)
+				if err != nil {
+					return fmt.Errorf("error getting member from state: %v", err)
+				}
+
+				var currentRoleId string
+				currentRolePriority := int32(9999)
+				for _, currentRole := range member.Roles {
+					if rolePriority, ok := eloType.RoleMap[currentRole]; ok {
+						currentRoleId = currentRole
+						currentRolePriority = rolePriority
+						break
+					}
+				}
+				if currentRoleId != role.RoleId {
+					updateEloRole(s, member, currentRoleId, role.RoleId)
+					roleObj, err := s.State.Role(guildId, role.RoleId)
 					if err != nil {
-						return fmt.Errorf("error getting member from state: %v", err)
+						return fmt.Errorf("error getting role from state: %v", err)
 					}
 
-					var currentRoleId string
-					for _, currentRole := range member.Roles {
-						if EloTypes[i].RoleMap[currentRole] {
-							currentRoleId = currentRole
-							break
-						}
-					}
-					if currentRoleId != role.RoleId {
-						updateEloRole(s, member, currentRoleId, role.RoleId)
-						roleObj, err := s.State.Role(guildId, role.RoleId)
-						if err != nil {
-							return fmt.Errorf("error getting role from state: %v", err)
-						}
-
+					if currentRolePriority > role.RolePriority {
 						s.ChannelMessageSend(
-							Config.BotChannelId,
+							config.Config.BotChannelId,
 							fmt.Sprintf("Congrats %s, you are now in %s!",
 								member.Mention(),
 								roleObj.Name),
 						)
 					}
-					break
 				}
+				break eloTypeLoop
 			}
-			log.Println("no valid role for elo ", elo.newElo)
 		}
-
-		// if Config.OneVOne.Enabled && u.oldElo.oneVOne != u.newElo.oneVOne {
-		// 	for _, role := range Config.OneVOne.Roles {
-		// 		if u.newElo.oneVOne >= role.StartingElo && u.newElo.oneVOne <= role.EndingElo {
-		// 			member, err := s.State.Member(guildId, u.discordUserID)
-		// 			if err != nil {
-		// 				return fmt.Errorf("error getting member from state: %v", err)
-		// 			}
-
-		// 			var currentRoleId string
-		// 			for _, currentRole := range member.Roles {
-		// 				if Config.OneVOne.RoleMap[currentRole] {
-		// 					currentRoleId = currentRole
-		// 					break
-		// 				}
-		// 			}
-		// 			if currentRoleId != role.RoleId {
-		// 				updateEloRole(s, member, currentRoleId, role.RoleId)
-		// 				roleObj, err := s.State.Role(guildId, role.RoleId)
-		// 				if err != nil {
-		// 					return fmt.Errorf("error getting role from state: %v", err)
-		// 				}
-
-		// 				s.ChannelMessageSend(
-		// 					Config.BotChannelId,
-		// 					fmt.Sprintf("Congrats %s, you are now in %s!",
-		// 						member.Mention(),
-		// 						roleObj.Name),
-		// 				)
-		// 			}
-		// 			break
-		// 		}
-		// 	}
-		// 	log.Println("no valid role for elo ", u.newElo.oneVOne)
-		// }
+		log.Println("no valid role for elo", highestElo)
 	}
 
 	return nil
@@ -144,7 +121,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 		SetUserAgent(UserAgent).
 		SetSearchPlayer(u.aoe4Username)
 
-	for i, t := range EloTypes {
+	for i, t := range config.GetEloTypes() {
 		if t.Enabled {
 			var req aoe4api.Request
 			var err error
@@ -186,11 +163,9 @@ func UpdateAllElo(s *discordgo.Session, guildId string) error {
 	}
 
 	var wg sync.WaitGroup
-	// var mu sync.Mutex
-
 	for _, u := range users {
 		wg.Add(1)
-		go func(u user) {
+		go func(u *user) {
 			defer wg.Done()
 			u.updateMemberElo(s, guildId)
 		}(u)
