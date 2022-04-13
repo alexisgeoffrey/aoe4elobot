@@ -12,7 +12,7 @@ import (
 
 const (
 	UserAgent   = "AOE 4 Elo Bot/2.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
-	usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\n!set\n!link\n```\n\nFind STEAMID64 @ https://steamid.io/lookup"
+	usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
 )
 
 var cmdMutex sync.Mutex

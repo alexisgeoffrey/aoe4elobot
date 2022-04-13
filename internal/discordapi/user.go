@@ -84,7 +84,7 @@ eloTypeLoop:
 				break eloTypeLoop
 			}
 		}
-		log.Println("no valid role for elo", highestElo)
+		// log.Println("no valid role for elo", highestElo)
 	}
 
 	return nil
