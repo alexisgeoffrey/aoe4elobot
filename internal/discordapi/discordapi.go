@@ -26,9 +26,9 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	dedupedMessage := strings.Join(strings.Fields(m.Content), " ")
 	switch lowerTrimmedMessage := strings.TrimSpace(strings.ToLower(dedupedMessage)); {
 	case // !setEloInfo
-		strings.HasPrefix(lowerTrimmedMessage, "!seteloinfo "),
-		strings.HasPrefix(lowerTrimmedMessage, "!set "),
-		strings.HasPrefix(lowerTrimmedMessage, "!link "):
+		strings.HasPrefix(lowerTrimmedMessage, "!seteloinfo"),
+		strings.HasPrefix(lowerTrimmedMessage, "!set"),
+		strings.HasPrefix(lowerTrimmedMessage, "!link"):
 
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()

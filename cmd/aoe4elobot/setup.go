@@ -26,8 +26,8 @@ func getGuildIds(st *discordgo.State) []string {
 	defer st.RUnlock()
 
 	guildIds := make([]string, len(st.Guilds))
-	for _, guild := range st.Guilds {
-		guildIds = append(guildIds, guild.ID)
+	for i, guild := range st.Guilds {
+		guildIds[i] = guild.ID
 	}
 	return guildIds
 }

@@ -30,8 +30,8 @@ var Db *pgxpool.Pool
 
 func init() {
 	// Open connection to user database
-	Db, err := pgxpool.Connect(context.Background(), config.Cfg.DbUrl)
-	if err != nil {
+	var err error
+	if Db, err = pgxpool.Connect(context.Background(), config.Cfg.DbUrl); err != nil {
 		log.Fatalf("error connecting to database: %v\n", err)
 	}
 
@@ -104,19 +104,19 @@ func GetUser(discordId string, guildId string) (*User, error) {
 		return &User{}, err
 	}
 
-	pgToInt(u, oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+	u.pgToInt(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
 
 	return u, nil
 }
 
-func GetUsers(guildId string) ([]*User, error) {
+func GetUsers(guildId string) ([]User, error) {
 	rows, err := Db.Query(context.Background(), "select * from users where guild_id = $1", guildId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var users []*User
+	var users []User
 
 	for rows.Next() {
 		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
@@ -134,15 +134,15 @@ func GetUsers(guildId string) ([]*User, error) {
 			return nil, err
 		}
 
-		pgToInt(&u, oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+		u.pgToInt(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
 
-		users = append(users, &u)
+		users = append(users, u)
 	}
 
 	return users, nil
 }
 
-func pgToInt(u *User,
+func (u *User) pgToInt(
 	oneVOne pgtype.Int4,
 	twoVTwo pgtype.Int4,
 	threeVThree pgtype.Int4,

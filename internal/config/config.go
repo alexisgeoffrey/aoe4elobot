@@ -12,21 +12,22 @@ import (
 
 type (
 	ConfigFile struct {
-		DbUrl         string   `yaml:"db_url" env:"DB_URL" env-required:"true"`
-		BotToken      string   `yaml:"bot_token" env:"BOT_TOKEN" env-required:"true"`
-		BotChannelId  string   `yaml:"bot_channel_id" env-required:"true"`
-		OneVOne       *EloType `yaml:"1v1"`
-		TwoVTwo       *EloType `yaml:"2v2"`
-		ThreeVThree   *EloType `yaml:"3v3"`
-		FourVFour     *EloType `yaml:"4v4"`
-		Custom        *EloType
+		DbUrl         string  `yaml:"db_url" env:"DB_URL" env-required:"true"`
+		BotToken      string  `yaml:"bot_token" env:"BOT_TOKEN" env-required:"true"`
+		BotChannelId  string  `yaml:"bot_channel_id" env-required:"true"`
+		OneVOne       EloType `yaml:"1v1"`
+		TwoVTwo       EloType `yaml:"2v2"`
+		ThreeVThree   EloType `yaml:"3v3"`
+		FourVFour     EloType `yaml:"4v4"`
+		Custom        EloType
+		EloTypes      []EloType       `yaml:"-"`
 		AdminRoles    []string        `yaml:"admin_roles,flow"`
 		AdminRolesMap map[string]bool `yaml:"-"`
 	}
 
 	EloType struct {
 		Enabled bool
-		Roles   []*EloRole       `yaml:"roles,omitempty"`
+		Roles   []EloRole        `yaml:"roles,omitempty"`
 		RoleMap map[string]int32 `yaml:"-"`
 	}
 
@@ -43,7 +44,7 @@ const UserAgent = "AOE 4 Elo Bot/2.0.0 (github.com/alexisgeoffrey/aoe4elobot; al
 var Cfg ConfigFile
 
 var (
-	sampleEloRoles = []*EloRole{
+	sampleEloRoles = []EloRole{
 		{
 			RoleId:       "eloRoleId1",
 			StartingElo:  500,
@@ -74,13 +75,27 @@ func init() {
 		log.Fatalf("error reading config file: %v\n", err)
 	}
 
-	for _, roleSet := range GetEloTypes() {
-		if roleSet.Enabled {
-			roleSet.RoleMap = make(map[string]int32, len(roleSet.Roles))
-			for _, role := range roleSet.Roles {
-				roleSet.RoleMap[role.RoleId] = role.RolePriority
+	for _, eloType := range []*EloType{
+		&Cfg.OneVOne,
+		&Cfg.TwoVTwo,
+		&Cfg.ThreeVThree,
+		&Cfg.FourVFour,
+		&Cfg.Custom,
+	} {
+		if eloType.Enabled && len(eloType.Roles) != 0 {
+			eloType.RoleMap = make(map[string]int32, len(eloType.Roles))
+			for _, role := range eloType.Roles {
+				eloType.RoleMap[role.RoleId] = role.RolePriority
 			}
 		}
+	}
+
+	Cfg.EloTypes = []EloType{
+		Cfg.OneVOne,
+		Cfg.TwoVTwo,
+		Cfg.ThreeVThree,
+		Cfg.FourVFour,
+		Cfg.Custom,
 	}
 
 	Cfg.AdminRolesMap = make(map[string]bool, len(Cfg.AdminRoles))
@@ -90,11 +105,11 @@ func init() {
 }
 
 func genConfig(path string) error {
-	Cfg.OneVOne = &EloType{Enabled: true, Roles: sampleEloRoles}
-	Cfg.TwoVTwo = &EloType{}
-	Cfg.ThreeVThree = &EloType{}
-	Cfg.FourVFour = &EloType{}
-	Cfg.Custom = &EloType{}
+	Cfg.OneVOne = EloType{Enabled: true, Roles: sampleEloRoles}
+	Cfg.TwoVTwo = EloType{}
+	Cfg.ThreeVThree = EloType{}
+	Cfg.FourVFour = EloType{}
+	Cfg.Custom = EloType{}
 	Cfg.AdminRoles = sampleAdminRoles
 	Cfg.BotChannelId = "botChannelId"
 
@@ -104,7 +119,7 @@ func genConfig(path string) error {
 	}
 	defer file.Close()
 
-	yamlBytes, err := yaml.Marshal(&Cfg)
+	yamlBytes, err := yaml.Marshal(Cfg)
 	if err != nil {
 		return fmt.Errorf("error marshaling yaml struct: %v", err)
 	}
@@ -115,14 +130,4 @@ func genConfig(path string) error {
 
 	log.Println("Config file does not exist. Creating...")
 	return nil
-}
-
-func GetEloTypes() []*EloType {
-	return []*EloType{
-		Cfg.OneVOne,
-		Cfg.TwoVTwo,
-		Cfg.ThreeVThree,
-		Cfg.FourVFour,
-		Cfg.Custom,
-	}
 }

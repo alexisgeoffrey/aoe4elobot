@@ -23,12 +23,13 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 	}
 
 	var wg sync.WaitGroup
-	for _, u := range users {
+	for i := range users {
 		wg.Add(1)
-		go func(u *db.User) {
+		go func(i int) {
 			defer wg.Done()
-			(*user)(u).updateMemberElo(s, guildId)
-		}(u)
+			user := (*user)(&users[i])
+			user.updateMemberElo(s, guildId)
+		}(i)
 	}
 	wg.Wait()
 
@@ -55,7 +56,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 		SetUserAgent(config.UserAgent).
 		SetSearchPlayer(u.Aoe4Username)
 
-	for i, t := range config.GetEloTypes() {
+	for i, t := range config.Cfg.EloTypes {
 		if t.Enabled {
 			var req aoe4api.Request
 			var err error
@@ -87,9 +88,10 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 	return nil
 }
 
-func updateGuildEloRoles(us []*db.User, s *discordgo.Session, guildId string) error {
+func updateGuildEloRoles(us []db.User, s *discordgo.Session, guildId string) error {
 	for _, u := range us {
-		if err := (*user)(u).changeMemberEloRoles(s, guildId); err != nil {
+		user := user(u)
+		if err := user.updateMemberEloRoles(s, guildId); err != nil {
 			return fmt.Errorf("error getting member elo: %v", err)
 		}
 	}
@@ -97,8 +99,8 @@ func updateGuildEloRoles(us []*db.User, s *discordgo.Session, guildId string) er
 	return nil
 }
 
-func (u *user) changeMemberEloRoles(s *discordgo.Session, guildId string) error {
-	eloTypes := config.GetEloTypes()
+func (u *user) updateMemberEloRoles(s *discordgo.Session, guildId string) error {
+	eloTypes := config.Cfg.EloTypes
 	oldNewElo := []struct {
 		oldElo int32
 		newElo int32
