@@ -7,11 +7,11 @@ import (
 	"sync"
 
 	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/internal/db"
 	"github.com/bwmarrin/discordgo"
 )
 
 const (
-	UserAgent   = "AOE 4 Elo Bot/2.0.0 (github.com/alexisgeoffrey/aoe4elobot; alexisgeoffrey1@gmail.com)"
 	usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
 )
 
@@ -62,7 +62,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			var isAdmin bool
 			for _, roleId := range targetMember.Roles {
-				if config.Config.AdminRolesMap[roleId] {
+				if config.Cfg.AdminRolesMap[roleId] {
 					isAdmin = true
 					break
 				}
@@ -103,14 +103,14 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 
 		if mention == "" {
-			if err := registerUser(aoe4Username, aoe4Id, m.Author.ID, m.GuildID); err != nil {
+			if err := db.RegisterUser(aoe4Username, aoe4Id, m.Author.ID, m.GuildID); err != nil {
 				setEloInfoError()
 				return
 			}
 
 			sendUpdateMessage(m.Author.Mention())
 		} else {
-			if err := registerUser(aoe4Username, aoe4Id, strings.Trim(mention, "<@>"), m.GuildID); err != nil {
+			if err := db.RegisterUser(aoe4Username, aoe4Id, strings.Trim(mention, "<@>"), m.GuildID); err != nil {
 				setEloInfoError()
 				return
 			}
@@ -127,7 +127,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		defer cmdMutex.Unlock()
 
 		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
-		if err := UpdateAllElo(s, m.GuildID); err != nil {
+		if err := UpdateGuildElo(s, m.GuildID); err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
 			log.Printf("error updating elo: %v\n", err)
 			return
@@ -154,7 +154,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		input := strings.SplitN(dedupedMessage, " ", 2)
 		if len(input) == 1 {
-			u, err := getUser(m.Author.ID, m.GuildID)
+			u, err := db.GetUser(m.Author.ID, m.GuildID)
 			if err != nil {
 				s.ChannelMessageSendReply(
 					m.ChannelID,
@@ -164,7 +164,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 
-			if err := u.updateMemberElo(s, m.GuildID); err != nil {
+			if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
 				eloInfoError()
 				log.Printf("error updating member elo: %v\n", err)
 				return
@@ -172,7 +172,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				u.newElo.generateEloString(m.Author.Username),
+				u.NewElo.GenerateEloString(m.Author.Username),
 				m.Reference())
 		} else if len(input) == 2 {
 			if !strings.HasPrefix(input[1], "<@") {
@@ -180,7 +180,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Printf("error updating member elo: %v\n", fmt.Errorf("invalid input"))
 				return
 			}
-			u, err := getUser(strings.Trim(input[1], "<@>"), m.GuildID)
+			u, err := db.GetUser(strings.Trim(input[1], "<@>"), m.GuildID)
 			if err != nil {
 				s.ChannelMessageSendReply(
 					m.ChannelID,
@@ -190,13 +190,13 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 
-			if err := u.updateMemberElo(s, m.GuildID); err != nil {
+			if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
 				eloInfoError()
 				log.Printf("error updating member elo: %v\n", err)
 				return
 			}
 
-			targetMember, err := s.State.Member(m.GuildID, u.discordUserID)
+			targetMember, err := s.State.Member(m.GuildID, u.DiscordUserID)
 			if err != nil {
 				eloInfoError()
 				log.Printf("error getting member from state: %v", err)
@@ -204,7 +204,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				u.newElo.generateEloString(targetMember.User.Username),
+				u.NewElo.GenerateEloString(targetMember.User.Username),
 				m.Reference())
 		} else {
 			s.ChannelMessageSendReply(

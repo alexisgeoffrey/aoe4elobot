@@ -1,4 +1,4 @@
-package discordapi
+package db
 
 import (
 	"fmt"
@@ -7,24 +7,16 @@ import (
 	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
 )
 
-type userElo struct {
-	oneVOne     int32
-	twoVTwo     int32
-	threeVThree int32
-	fourVFour   int32
-	custom      int32
-}
-
-func (elo *userElo) generateEloString(name string) string {
+func (elo *UserElo) GenerateEloString(name string) string {
 	builder := strings.Builder{}
 	builder.WriteString(fmt.Sprintf("%s:\n", name))
 
 	eloVals := []int32{
-		elo.oneVOne,
-		elo.twoVTwo,
-		elo.threeVThree,
-		elo.fourVFour,
-		elo.custom,
+		elo.OneVOne,
+		elo.TwoVTwo,
+		elo.ThreeVThree,
+		elo.FourVFour,
+		elo.Custom,
 	}
 
 	eloLabels := getEloLabels()

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,26 +8,15 @@ import (
 	"syscall"
 
 	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/internal/db"
 	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
-	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	var err error
-	// Open connection to user database
-	discordapi.Db, err = pgxpool.Connect(context.Background(), config.Config.DbUrl)
-	if err != nil {
-		log.Fatalf("error connecting to database: %v\n", err)
-	}
-
-	if err := setupDb(discordapi.Db); err != nil {
-		log.Fatalf("error setting up database: %v\n", err)
-	}
-
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + config.Config.BotToken)
+	dg, err := discordgo.New("Bot " + config.Cfg.BotToken)
 	if err != nil {
 		log.Fatalf("error creating Discord session: %v\n", err)
 	}
@@ -64,5 +52,5 @@ func main() {
 	fmt.Println("Shutting down...")
 	c.Stop()
 	dg.Close()
-	discordapi.Db.Close()
+	db.Db.Close()
 }
