@@ -94,7 +94,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 	// 	return fmt.Errorf("error getting member elo: %v", err)
 	// }
 
-	if err := db.UpdateUser(u.DiscordUserID, guildId, u.NewElo); err != nil {
+	if err := db.UpdateUserElo(u.DiscordUserID, guildId, u.NewElo); err != nil {
 		return fmt.Errorf("error updating user in db: %v", err)
 	}
 

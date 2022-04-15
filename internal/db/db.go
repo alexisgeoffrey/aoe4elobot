@@ -71,7 +71,7 @@ func RegisterUser(username string, aoeId string, discordId string, guildId strin
 	return nil
 }
 
-func UpdateUser(discordId string, guildId string, elo UserElo) error {
+func UpdateUserElo(discordId string, guildId string, elo UserElo) error {
 	updateUser, err := Db.Exec(context.Background(),
 		`update users set elo_1v1 = $1, elo_2v2 = $2, elo_3v3 = $3, elo_4v4 = $4, elo_custom = $5
 		where discord_id = $6 and guild_id = $7`,
