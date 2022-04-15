@@ -155,18 +155,18 @@ eloTypeLoop:
 				if err := changeMemberEloRole(s, member, currentRoleId, role.RoleId); err != nil {
 					return fmt.Errorf("error changing member elo role from %s to %s: %v", currentRoleId, role.RoleId, err)
 				}
-				_, err := s.State.Role(guildId, role.RoleId)
+				roleObj, err := s.State.Role(guildId, role.RoleId)
 				if err != nil {
 					return fmt.Errorf("error getting role from state: %v", err)
 				}
 
 				if currentRolePriority > role.RolePriority {
-					// s.ChannelMessageSend(
-					// 	config.Cfg.BotChannelId,
-					// 	fmt.Sprintf("Congrats %s, you are now in %s!",
-					// 		member.Mention(),
-					// 		roleObj.Name),
-					// )
+					s.ChannelMessageSend(
+						config.Cfg.BotChannelId,
+						fmt.Sprintf("Congrats %s, you are now in %s!",
+							member.Mention(),
+							roleObj.Name),
+					)
 				}
 				break eloTypeLoop
 			}
