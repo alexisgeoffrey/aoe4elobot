@@ -170,9 +170,16 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				return
 			}
 
+			var name string
+			if m.Member.Nick != "" {
+				name = m.Member.Nick
+			} else {
+				name = m.Author.Username
+			}
+
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				u.NewElo.GenerateEloString(m.Author.Username),
+				u.NewElo.GenerateEloString(name),
 				m.Reference())
 		} else if len(input) == 2 {
 			if !strings.HasPrefix(input[1], "<@") {
@@ -180,6 +187,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Printf("error updating member elo: %v\n", fmt.Errorf("invalid input"))
 				return
 			}
+
 			u, err := db.GetUser(strings.Trim(input[1], "<@>"), m.GuildID)
 			if err != nil {
 				s.ChannelMessageSendReply(
@@ -202,9 +210,16 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				log.Printf("error getting member from state: %v", err)
 			}
 
+			var name string
+			if targetMember.Nick != "" {
+				name = targetMember.Nick
+			} else {
+				name = targetMember.User.Username
+			}
+
 			s.ChannelMessageSendReply(
 				m.ChannelID,
-				u.NewElo.GenerateEloString(targetMember.User.Username),
+				u.NewElo.GenerateEloString(name),
 				m.Reference())
 		} else {
 			s.ChannelMessageSendReply(

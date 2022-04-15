@@ -37,7 +37,7 @@ func main() {
 	}
 
 	c := cron.New()
-	if _, err = c.AddFunc("0 */2 * * *", func() { eloUpdateCron(dg) }); err != nil {
+	if _, err = c.AddFunc("@midnight", func() { eloUpdateCron(dg) }); err != nil {
 		log.Fatalf("error adding cron job: %v\n", err)
 	}
 	c.Start()

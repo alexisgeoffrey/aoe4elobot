@@ -42,20 +42,22 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 
 func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 	eloAndTs := []struct {
-		elo      *int32
-		teamSize aoe4api.TeamSize
+		currentElo *int32
+		newElo     *int32
+		teamSize   aoe4api.TeamSize
 	}{
-		{&u.NewElo.OneVOne, aoe4api.OneVOne},
-		{&u.NewElo.TwoVTwo, aoe4api.TwoVTwo},
-		{&u.NewElo.ThreeVThree, aoe4api.ThreeVThree},
-		{&u.NewElo.FourVFour, aoe4api.FourVFour},
-		{&u.NewElo.Custom, 5},
+		{&u.CurrentElo.OneVOne, &u.NewElo.OneVOne, aoe4api.OneVOne},
+		{&u.CurrentElo.TwoVTwo, &u.NewElo.TwoVTwo, aoe4api.TwoVTwo},
+		{&u.CurrentElo.ThreeVThree, &u.NewElo.ThreeVThree, aoe4api.ThreeVThree},
+		{&u.CurrentElo.FourVFour, &u.NewElo.FourVFour, aoe4api.FourVFour},
+		{&u.CurrentElo.Custom, &u.NewElo.Custom, 5},
 	}
 
 	builder := aoe4api.NewRequestBuilder().
 		SetUserAgent(config.UserAgent).
 		SetSearchPlayer(u.Aoe4Username)
 
+	var wg sync.WaitGroup
 	for i, t := range config.Cfg.EloTypes {
 		if t.Enabled {
 			var req aoe4api.Request
@@ -71,15 +73,26 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 				return fmt.Errorf("error building request: %v", err)
 			}
 
-			memberElo, err := req.QueryElo(u.Aoe4Id)
-			if err != nil {
-				// fmt.Printf("error querying member Elo: %v\n", err)
-				continue
-			}
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				memberElo, err := req.QueryElo(u.Aoe4Id)
+				if err != nil {
+					*eloAndTs[i].newElo = *eloAndTs[i].currentElo
+					// log.Printf("no response from api for %s for elo %s", u.Aoe4Username, [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}[i])
+					return
+				}
 
-			*eloAndTs[i].elo = int32(memberElo)
+				*eloAndTs[i].newElo = int32(memberElo)
+			}(i)
 		}
 	}
+	wg.Wait()
+
+	// user := (*user)(u)
+	// if err := user.updateMemberEloRoles(s, guildId); err != nil {
+	// 	return fmt.Errorf("error getting member elo: %v", err)
+	// }
 
 	if err := db.UpdateUser(u.DiscordUserID, guildId, u.NewElo); err != nil {
 		return fmt.Errorf("error updating user in db: %v", err)
@@ -118,43 +131,51 @@ func (u *user) updateMemberEloRoles(s *discordgo.Session, guildId string) error 
 		}
 	}
 
+	member, err := s.State.Member(guildId, u.DiscordUserID)
+	if err != nil {
+		return fmt.Errorf("error getting member from state: %v", err)
+	}
 eloTypeLoop:
 	for _, eloType := range eloTypes {
+		var currentRoleId string
+		var currentRolePriority int32 = 9999
+		for _, currentRole := range member.Roles {
+			if rolePriority, ok := eloType.RoleMap[currentRole]; ok {
+				currentRoleId = currentRole
+				currentRolePriority = rolePriority
+				break
+			}
+		}
+
 		for _, role := range eloType.Roles {
 			if highestElo >= role.StartingElo && highestElo <= role.EndingElo {
-				member, err := s.State.Member(guildId, u.DiscordUserID)
+				if currentRoleId == role.RoleId {
+					break eloTypeLoop
+				}
+				if err := changeMemberEloRole(s, member, currentRoleId, role.RoleId); err != nil {
+					return fmt.Errorf("error changing member elo role from %s to %s: %v", currentRoleId, role.RoleId, err)
+				}
+				_, err := s.State.Role(guildId, role.RoleId)
 				if err != nil {
-					return fmt.Errorf("error getting member from state: %v", err)
+					return fmt.Errorf("error getting role from state: %v", err)
 				}
 
-				var currentRoleId string
-				var currentRolePriority int32 = 9999
-				for _, currentRole := range member.Roles {
-					if rolePriority, ok := eloType.RoleMap[currentRole]; ok {
-						currentRoleId = currentRole
-						currentRolePriority = rolePriority
-						break
-					}
-				}
-				if currentRoleId != role.RoleId {
-					changeMemberEloRole(s, member, currentRoleId, role.RoleId)
-					roleObj, err := s.State.Role(guildId, role.RoleId)
-					if err != nil {
-						return fmt.Errorf("error getting role from state: %v", err)
-					}
-
-					if currentRolePriority > role.RolePriority {
-						s.ChannelMessageSend(
-							config.Cfg.BotChannelId,
-							fmt.Sprintf("Congrats %s, you are now in %s!",
-								member.Mention(),
-								roleObj.Name),
-						)
-					}
+				if currentRolePriority > role.RolePriority {
+					// s.ChannelMessageSend(
+					// 	config.Cfg.BotChannelId,
+					// 	fmt.Sprintf("Congrats %s, you are now in %s!",
+					// 		member.Mention(),
+					// 		roleObj.Name),
+					// )
 				}
 				break eloTypeLoop
 			}
 		}
+
+		if err := changeMemberEloRole(s, member, currentRoleId, ""); err != nil {
+			return fmt.Errorf("error removing member elo role from %s: %v", currentRoleId, err)
+		}
+		break // TODO
 	}
 
 	return nil
@@ -162,14 +183,17 @@ eloTypeLoop:
 
 func changeMemberEloRole(s *discordgo.Session, m *discordgo.Member, currentRoleId string, newRoleId string) error {
 	if currentRoleId != "" {
-		err := s.GuildMemberRoleRemove(m.GuildID, m.User.ID, currentRoleId)
-		if err != nil {
+		if err := s.GuildMemberRoleRemove(m.GuildID, m.User.ID, currentRoleId); err != nil {
 			return fmt.Errorf("error removing role: %v", err)
 		}
+		log.Printf("role %s removed from user %s", currentRoleId, m.Mention())
 	}
 
-	if err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, newRoleId); err != nil {
-		return fmt.Errorf("error adding role: %v", err)
+	if newRoleId != "" {
+		if err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, newRoleId); err != nil {
+			return fmt.Errorf("error adding role: %v", err)
+		}
+		log.Printf("role %s added to user %s", newRoleId, m.Mention())
 	}
 
 	return nil
