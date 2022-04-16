@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
-	"github.com/alexisgeoffrey/aoe4elobot/internal/db"
-	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/db"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
 	"github.com/robfig/cron/v3"
 )

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
-	"github.com/alexisgeoffrey/aoe4elobot/internal/db"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/db"
 	"github.com/bwmarrin/discordgo"
 )
 

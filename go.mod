@@ -1,4 +1,4 @@
-module github.com/alexisgeoffrey/aoe4elobot
+module github.com/alexisgeoffrey/aoe4elobot/v2
 
 go 1.18
 

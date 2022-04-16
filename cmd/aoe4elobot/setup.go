@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/alexisgeoffrey/aoe4elobot/internal/discordapi"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/discordapi"
 	"github.com/bwmarrin/discordgo"
 )
 

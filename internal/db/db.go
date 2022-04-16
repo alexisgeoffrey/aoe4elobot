@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/config"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4/pgxpool"
 )

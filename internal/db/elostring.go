@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/alexisgeoffrey/aoe4elobot/internal/config"
+	"github.com/alexisgeoffrey/aoe4elobot/v2/internal/config"
 )
 
 func (elo *UserElo) GenerateEloString(name string) string {
