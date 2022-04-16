@@ -1,11 +1,11 @@
 FROM golang:1.18-alpine AS builder
 WORKDIR /go/src/github.com/alexisgeoffrey/aoe4elobot
-RUN apk --update add ca-certificates
+RUN apk --update-cache add ca-certificates
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
-RUN CGO_ENABLED=0 go build ./cmd/aoe4elobot
+RUN CGO_ENABLED=0 go build -ldflags="-w -s" ./cmd/aoe4elobot
 
 FROM scratch
 WORKDIR /app
