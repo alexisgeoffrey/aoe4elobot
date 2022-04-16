@@ -21,10 +21,10 @@ func (elo *UserElo) GenerateEloString(name string) string {
 
 	for i, label := range [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"} {
 		if config.Cfg.EloTypes[i].Enabled {
-			if eloVals[i] != 0 {
-				builder.WriteString(fmt.Sprintf("%s: %d\n", label, eloVals[i]))
-			} else {
+			if eloVals[i] == 0 {
 				builder.WriteString(fmt.Sprintf("%s: None\n", label))
+			} else {
+				builder.WriteString(fmt.Sprintf("%s: %d\n", label, eloVals[i]))
 			}
 		}
 	}

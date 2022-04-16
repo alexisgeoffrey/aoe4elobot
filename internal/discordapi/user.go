@@ -40,7 +40,7 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 	return nil
 }
 
-func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
+func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error) {
 	eloAndTs := []struct {
 		currentElo *int32
 		newElo     *int32
@@ -59,46 +59,44 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) error {
 
 	var wg sync.WaitGroup
 	for i, t := range config.Cfg.EloTypes {
-		if t.Enabled {
-			var req aoe4api.Request
-			var err error
-			if eloAndTs[i].teamSize == 5 {
-				req, err = builder.SetMatchType(aoe4api.Custom).
-					Request()
-			} else {
-				req, err = builder.SetTeamSize(eloAndTs[i].teamSize).
-					Request()
-			}
-			if err != nil {
-				return fmt.Errorf("error building request: %v", err)
-			}
-
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				memberElo, err := req.QueryElo(u.Aoe4Id)
-				if err != nil {
-					*eloAndTs[i].newElo = *eloAndTs[i].currentElo
-					// log.Printf("no response from api for %s for elo %s", u.Aoe4Username, [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}[i])
-					return
-				}
-
-				*eloAndTs[i].newElo = int32(memberElo)
-			}(i)
+		if !t.Enabled {
+			continue
 		}
+
+		var req aoe4api.Request
+		if eloAndTs[i].teamSize == 5 {
+			req, err = builder.
+				SetMatchType(aoe4api.Custom).
+				Request()
+		} else {
+			req, err = builder.
+				SetTeamSize(eloAndTs[i].teamSize).
+				Request()
+		}
+		if err != nil {
+			return fmt.Errorf("error building request: %v", err)
+		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			memberElo, err := req.QueryElo(u.Aoe4Id)
+			if err != nil {
+				*eloAndTs[i].newElo = *eloAndTs[i].currentElo
+				// log.Printf("no response from api for %s for elo %s", u.Aoe4Username, [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}[i])
+				return
+			}
+
+			*eloAndTs[i].newElo = int32(memberElo)
+		}(i)
 	}
 	wg.Wait()
-
-	// user := (*user)(u)
-	// if err := user.updateMemberEloRoles(s, guildId); err != nil {
-	// 	return fmt.Errorf("error getting member elo: %v", err)
-	// }
 
 	if err := db.UpdateUserElo(u.DiscordUserID, guildId, u.NewElo); err != nil {
 		return fmt.Errorf("error updating user in db: %v", err)
 	}
 
-	return nil
+	return
 }
 
 func updateGuildEloRoles(us []db.User, s *discordgo.Session, guildId string) error {
@@ -113,30 +111,15 @@ func updateGuildEloRoles(us []db.User, s *discordgo.Session, guildId string) err
 }
 
 func (u *user) updateMemberEloRoles(s *discordgo.Session, guildId string) error {
-	eloTypes := config.Cfg.EloTypes
-	oldNewElo := []struct {
-		oldElo int32
-		newElo int32
-	}{
-		{u.CurrentElo.OneVOne, u.NewElo.OneVOne},
-		{u.CurrentElo.TwoVTwo, u.NewElo.TwoVTwo},
-		{u.CurrentElo.ThreeVThree, u.NewElo.ThreeVThree},
-		{u.CurrentElo.FourVFour, u.NewElo.FourVFour},
-		{u.CurrentElo.Custom, u.NewElo.Custom},
-	}
-	var highestElo int32
-	for i, elo := range oldNewElo {
-		if eloTypes[i].Enabled && elo.newElo > highestElo {
-			highestElo = elo.newElo
-		}
-	}
-
 	member, err := s.State.Member(guildId, u.DiscordUserID)
 	if err != nil {
 		return fmt.Errorf("error getting member from state: %v", err)
 	}
+
+	highestElo := u.getHighestElo()
+
 eloTypeLoop:
-	for _, eloType := range eloTypes {
+	for _, eloType := range config.Cfg.EloTypes {
 		var currentRoleId string
 		var currentRolePriority int32 = 9999
 		for _, currentRole := range member.Roles {
@@ -179,6 +162,27 @@ eloTypeLoop:
 	}
 
 	return nil
+}
+
+func (u *user) getHighestElo() (highestElo int32) {
+	oldNewElo := []struct {
+		oldElo int32
+		newElo int32
+	}{
+		{u.CurrentElo.OneVOne, u.NewElo.OneVOne},
+		{u.CurrentElo.TwoVTwo, u.NewElo.TwoVTwo},
+		{u.CurrentElo.ThreeVThree, u.NewElo.ThreeVThree},
+		{u.CurrentElo.FourVFour, u.NewElo.FourVFour},
+		{u.CurrentElo.Custom, u.NewElo.Custom},
+	}
+
+	for _, elo := range oldNewElo {
+		if elo.newElo > highestElo {
+			highestElo = elo.newElo
+		}
+	}
+
+	return
 }
 
 func changeMemberEloRole(s *discordgo.Session, m *discordgo.Member, currentRoleId string, newRoleId string) error {

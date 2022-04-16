@@ -11,8 +11,7 @@ func eloUpdateCron(dg *discordgo.Session) {
 	log.Println("Running scheduled Elo update.")
 
 	for _, id := range getGuildIds(dg.State) {
-		err := discordapi.UpdateGuildElo(dg, id)
-		if err != nil {
+		if err := discordapi.UpdateGuildElo(dg, id); err != nil {
 			log.Printf("error updating elo on server %s: %v\n", id, err)
 			continue
 		}

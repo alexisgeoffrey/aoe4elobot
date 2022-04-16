@@ -107,11 +107,9 @@ func init() {
 }
 
 func genConfig(path string) error {
+	log.Println("Config file does not exist. Creating...")
+
 	Cfg.OneVOne = EloType{Enabled: true, Roles: sampleEloRoles}
-	Cfg.TwoVTwo = EloType{}
-	Cfg.ThreeVThree = EloType{}
-	Cfg.FourVFour = EloType{}
-	Cfg.Custom = EloType{}
 	Cfg.AdminRoles = sampleAdminRoles
 	Cfg.BotChannelId = "botChannelId"
 
@@ -130,6 +128,5 @@ func genConfig(path string) error {
 		return fmt.Errorf("error writing config file: %v", err)
 	}
 
-	log.Println("Config file does not exist. Creating...")
 	return nil
 }

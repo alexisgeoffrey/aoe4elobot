@@ -37,22 +37,22 @@ func init() {
 
 	if _, err := Db.Exec(context.Background(),
 		`create table if not exists users(
-		discord_id	varchar(20),
-		username	text not null,
-		guild_id	varchar(20),
-		aoe_id		varchar(40) not null,
-		elo_1v1		int,
-		elo_2v2		int,
-		elo_3v3		int,
-		elo_4v4		int,
-		elo_custom	int,
-		primary key(discord_id, guild_id)
-		)`); err != nil {
+		 discord_id	varchar(20),
+		 username	text not null,
+		 guild_id	varchar(20),
+		 aoe_id		varchar(40) not null,
+		 elo_1v1	int,
+		 elo_2v2	int,
+		 elo_3v3	int,
+		 elo_4v4	int,
+		 elo_custom	int,
+		 primary key(discord_id, guild_id)
+		 )`); err != nil {
 		log.Fatalf("error setting up database: %v\n", err)
 	}
 }
 
-func RegisterUser(username string, aoeId string, discordId string, guildId string) error {
+func RegisterUser(username string, aoeId string, discordId string, guildId string) (err error) {
 	updateUser, err := Db.Exec(context.Background(),
 		"update users set username = $1, aoe_id = $2 where discord_id = $3 and guild_id = $4",
 		username, aoeId, discordId, guildId)
@@ -60,21 +60,20 @@ func RegisterUser(username string, aoeId string, discordId string, guildId strin
 		return fmt.Errorf("error updating user in db: %v", err)
 	}
 	if updateUser.RowsAffected() == 0 {
-		_, err := Db.Exec(context.Background(),
+		if _, err := Db.Exec(context.Background(),
 			"insert into users(username, aoe_id, discord_id, guild_id) values($1, $2, $3, $4)",
-			username, aoeId, discordId, guildId)
-		if err != nil {
+			username, aoeId, discordId, guildId); err != nil {
 			return fmt.Errorf("error inserting user in db: %v", err)
 		}
 	}
 
-	return nil
+	return
 }
 
 func UpdateUserElo(discordId string, guildId string, elo UserElo) error {
 	updateUser, err := Db.Exec(context.Background(),
 		`update users set elo_1v1 = $1, elo_2v2 = $2, elo_3v3 = $3, elo_4v4 = $4, elo_custom = $5
-		where discord_id = $6 and guild_id = $7`,
+		 where discord_id = $6 and guild_id = $7`,
 		elo.OneVOne, elo.TwoVTwo, elo.ThreeVThree, elo.FourVFour, elo.Custom, discordId, guildId)
 	if err != nil {
 		return fmt.Errorf("error updating user in db: %v", err)
@@ -109,14 +108,12 @@ func GetUser(discordId string, guildId string) (*User, error) {
 	return u, nil
 }
 
-func GetUsers(guildId string) ([]User, error) {
+func GetUsers(guildId string) (users []User, err error) {
 	rows, err := Db.Query(context.Background(), "select * from users where guild_id = $1", guildId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var users []User
 
 	for rows.Next() {
 		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
@@ -139,7 +136,7 @@ func GetUsers(guildId string) ([]User, error) {
 		users = append(users, u)
 	}
 
-	return users, nil
+	return
 }
 
 func (u *User) pgToInt(
