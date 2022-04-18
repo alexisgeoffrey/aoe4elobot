@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/alexisgeoffrey/aoe4api v0.3.1
-	github.com/bwmarrin/discordgo v0.24.0
+	github.com/bwmarrin/discordgo v0.25.0
 	github.com/ilyakaznacheev/cleanenv v1.2.6
 	github.com/jackc/pgtype v1.10.0
 	github.com/jackc/pgx/v4 v4.15.0
