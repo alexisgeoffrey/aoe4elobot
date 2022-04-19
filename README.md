@@ -1,5 +1,5 @@
 # AOE 4 Elo Bot
-[![ci](https://img.shields.io/github/workflow/status/alexisgeoffrey/aoe4elobot/ci?label=ci)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/ci.yml)
+[![ci](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/ci.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexisgeoffrey/aoe4elobot/actions/workflows/codeql.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/alexisgeoffrey/aoe4elobot/v2)](https://goreportcard.com/report/github.com/alexisgeoffrey/aoe4elobot/v2)
 
