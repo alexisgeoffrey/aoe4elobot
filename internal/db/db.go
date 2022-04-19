@@ -57,13 +57,13 @@ func RegisterUser(username string, aoeId string, discordId string, guildId strin
 		"update users set username = $1, aoe_id = $2 where discord_id = $3 and guild_id = $4",
 		username, aoeId, discordId, guildId)
 	if err != nil {
-		return fmt.Errorf("error updating user in db: %v", err)
+		return fmt.Errorf("error updating user in db: %w", err)
 	}
 	if updateUser.RowsAffected() == 0 {
 		if _, err := Db.Exec(context.Background(),
 			"insert into users(username, aoe_id, discord_id, guild_id) values($1, $2, $3, $4)",
 			username, aoeId, discordId, guildId); err != nil {
-			return fmt.Errorf("error inserting user in db: %v", err)
+			return fmt.Errorf("error inserting user in db: %w", err)
 		}
 	}
 
@@ -76,7 +76,7 @@ func UpdateUserElo(discordId string, guildId string, elo UserElo) error {
 		 where discord_id = $6 and guild_id = $7`,
 		elo.OneVOne, elo.TwoVTwo, elo.ThreeVThree, elo.FourVFour, elo.Custom, discordId, guildId)
 	if err != nil {
-		return fmt.Errorf("error updating user in db: %v", err)
+		return fmt.Errorf("error updating user in db: %w", err)
 	}
 	if updateUser.RowsAffected() != 1 {
 		return fmt.Errorf("user not found")

@@ -1,6 +1,7 @@
 package discordapi
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -19,7 +20,7 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 
 	users, err := db.GetUsers(guildId)
 	if err != nil {
-		return fmt.Errorf("error getting users: %v", err)
+		return fmt.Errorf("error getting users: %w", err)
 	}
 
 	var wg sync.WaitGroup
@@ -74,7 +75,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 				Request()
 		}
 		if err != nil {
-			return fmt.Errorf("error building request: %v", err)
+			return fmt.Errorf("error building request: %w", err)
 		}
 
 		wg.Add(1)
@@ -93,7 +94,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 	wg.Wait()
 
 	if err := db.UpdateUserElo(u.DiscordUserID, guildId, u.NewElo); err != nil {
-		return fmt.Errorf("error updating user in db: %v", err)
+		return fmt.Errorf("error updating user in db: %w", err)
 	}
 
 	return
@@ -102,8 +103,11 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 func updateGuildEloRoles(us []db.User, s *discordgo.Session, guildId string) error {
 	for _, u := range us {
 		user := user(u)
-		if err := user.updateMemberEloRoles(s, guildId); err != nil {
-			return fmt.Errorf("error getting member elo: %v", err)
+		if err := user.updateMemberEloRoles(s, guildId); errors.Is(err, discordgo.ErrStateNotFound) {
+			log.Println(err)
+			continue
+		} else if err != nil {
+			return fmt.Errorf("error getting member elo: %w", err)
 		}
 	}
 
@@ -113,7 +117,7 @@ func updateGuildEloRoles(us []db.User, s *discordgo.Session, guildId string) err
 func (u *user) updateMemberEloRoles(s *discordgo.Session, guildId string) error {
 	member, err := s.State.Member(guildId, u.DiscordUserID)
 	if err != nil {
-		return fmt.Errorf("error getting member from state: %v", err)
+		return fmt.Errorf("error getting member %s from state: %w", u.DiscordUserID, err)
 	}
 
 	highestElo := u.getHighestElo()
@@ -136,11 +140,11 @@ eloTypeLoop:
 					break eloTypeLoop
 				}
 				if err := changeMemberEloRole(s, member, currentRoleId, role.RoleId); err != nil {
-					return fmt.Errorf("error changing member elo role from %s to %s: %v", currentRoleId, role.RoleId, err)
+					return fmt.Errorf("error changing member elo role from %s to %s for member %s: %w", currentRoleId, role.RoleId, u.DiscordUserID, err)
 				}
 				roleObj, err := s.State.Role(guildId, role.RoleId)
 				if err != nil {
-					return fmt.Errorf("error getting role from state: %v", err)
+					return fmt.Errorf("error getting role %s from state: %w", role.RoleId, err)
 				}
 
 				if currentRolePriority > role.RolePriority {
@@ -156,7 +160,7 @@ eloTypeLoop:
 		}
 
 		if err := changeMemberEloRole(s, member, currentRoleId, ""); err != nil {
-			return fmt.Errorf("error removing member elo role from %s: %v", currentRoleId, err)
+			return fmt.Errorf("error removing member elo role from %s: %w", currentRoleId, err)
 		}
 		break // TODO
 	}
@@ -188,14 +192,14 @@ func (u *user) getHighestElo() (highestElo int32) {
 func changeMemberEloRole(s *discordgo.Session, m *discordgo.Member, currentRoleId string, newRoleId string) error {
 	if currentRoleId != "" {
 		if err := s.GuildMemberRoleRemove(m.GuildID, m.User.ID, currentRoleId); err != nil {
-			return fmt.Errorf("error removing role: %v", err)
+			return fmt.Errorf("error removing role: %w", err)
 		}
 		log.Printf("role %s removed from user %s", currentRoleId, m.Mention())
 	}
 
 	if newRoleId != "" {
 		if err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, newRoleId); err != nil {
-			return fmt.Errorf("error adding role: %v", err)
+			return fmt.Errorf("error adding role: %w", err)
 		}
 		log.Printf("role %s added to user %s", newRoleId, m.Mention())
 	}

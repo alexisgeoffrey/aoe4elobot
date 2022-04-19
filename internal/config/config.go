@@ -115,17 +115,17 @@ func genConfig(path string) error {
 
 	file, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("error creating config file: %v", err)
+		return fmt.Errorf("error creating config file: %w", err)
 	}
 	defer file.Close()
 
 	yamlBytes, err := yaml.Marshal(Cfg)
 	if err != nil {
-		return fmt.Errorf("error marshaling yaml struct: %v", err)
+		return fmt.Errorf("error marshaling yaml struct: %w", err)
 	}
 
 	if _, err := file.Write(yamlBytes); err != nil {
-		return fmt.Errorf("error writing config file: %v", err)
+		return fmt.Errorf("error writing config file: %w", err)
 	}
 
 	return nil
