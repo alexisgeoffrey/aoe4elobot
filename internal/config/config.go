@@ -12,30 +12,30 @@ import (
 
 type (
 	ConfigFile struct {
-		DbUrl         string  `yaml:"db_url" env:"DB_URL" env-required:"true"`
-		BotToken      string  `yaml:"bot_token" env:"BOT_TOKEN" env-required:"true"`
-		BotChannelId  string  `yaml:"bot_channel_id" env-required:"true"`
-		OneVOne       EloType `yaml:"1v1"`
-		TwoVTwo       EloType `yaml:"2v2"`
-		ThreeVThree   EloType `yaml:"3v3"`
-		FourVFour     EloType `yaml:"4v4"`
-		Custom        EloType
-		EloTypes      []EloType       `yaml:"-"`
-		AdminRoles    []string        `yaml:"admin_roles,flow"`
 		AdminRolesMap map[string]bool `yaml:"-"`
+		DbUrl         string          `yaml:"db_url" env:"DB_URL" env-required:"true"`
+		BotToken      string          `yaml:"bot_token" env:"BOT_TOKEN" env-required:"true"`
+		BotChannelId  string          `yaml:"bot_channel_id" env-required:"true"`
+		AdminRoles    []string        `yaml:"admin_roles,flow"`
+		EloTypes      []EloType       `yaml:"-"`
+		OneVOne       EloType         `yaml:"1v1"`
+		TwoVTwo       EloType         `yaml:"2v2"`
+		ThreeVThree   EloType         `yaml:"3v3"`
+		FourVFour     EloType         `yaml:"4v4"`
+		Custom        EloType
 	}
 
 	EloType struct {
-		Enabled bool
+		RoleMap map[string]int16 `yaml:"-"`
 		Roles   []EloRole        `yaml:"roles,omitempty"`
-		RoleMap map[string]int32 `yaml:"-"`
+		Enabled bool
 	}
 
 	EloRole struct {
 		RoleId       string `yaml:"role_id"`
-		RolePriority int32  `yaml:"role_priority"`
-		StartingElo  int32  `yaml:"starting_elo"`
-		EndingElo    int32  `yaml:"ending_elo"`
+		RolePriority int16  `yaml:"role_priority"`
+		StartingElo  int16  `yaml:"starting_elo"`
+		EndingElo    int16  `yaml:"ending_elo"`
 	}
 )
 
@@ -85,7 +85,7 @@ func init() {
 		&Cfg.Custom,
 	} {
 		if eloType.Enabled && len(eloType.Roles) != 0 {
-			eloType.RoleMap = make(map[string]int32, len(eloType.Roles))
+			eloType.RoleMap = make(map[string]int16, len(eloType.Roles))
 			for _, role := range eloType.Roles {
 				eloType.RoleMap[role.RoleId] = role.RolePriority
 			}

@@ -11,9 +11,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const (
-	usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
-)
+const usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
 
 var cmdMutex sync.Mutex
 
@@ -67,7 +65,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		getEloInfo(s, m, dedupedMessage)
+		getElo(s, m, dedupedMessage)
 
 	case // !help
 		lowerTrimmedMessage == "!help",
@@ -164,7 +162,7 @@ func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 	}
 }
 
-func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage string) {
+func getElo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage string) {
 	eloInfoError := func() {
 		s.ChannelMessageSendReply(
 			m.ChannelID,
@@ -173,8 +171,11 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 	}
 
 	input := strings.SplitN(dedupedMessage, " ", 2)
+	var err error
+	var u *db.User
+	var targetMember *discordgo.Member
 	if len(input) == 1 {
-		u, err := db.GetUser(m.Author.ID, m.GuildID)
+		u, err = db.GetUser(m.Author.ID, m.GuildID)
 		if err != nil {
 			s.ChannelMessageSendReply(
 				m.ChannelID,
@@ -184,23 +185,7 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 			return
 		}
 
-		if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
-			eloInfoError()
-			log.Printf("error updating member elo: %v\n", err)
-			return
-		}
-
-		var name string
-		if m.Member.Nick != "" {
-			name = m.Member.Nick
-		} else {
-			name = m.Author.Username
-		}
-
-		s.ChannelMessageSendReply(
-			m.ChannelID,
-			u.NewElo.GenerateEloString(name),
-			m.Reference())
+		targetMember = m.Member
 	} else if len(input) == 2 {
 		if !strings.HasPrefix(input[1], "<@") {
 			eloInfoError()
@@ -218,29 +203,12 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 			return
 		}
 
-		if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
-			eloInfoError()
-			log.Printf("error updating member elo: %v\n", err)
-			return
-		}
-
-		targetMember, err := s.State.Member(m.GuildID, u.DiscordUserID)
+		targetMember, err = s.State.Member(m.GuildID, u.DiscordUserID)
 		if err != nil {
 			eloInfoError()
 			log.Printf("error getting member %s from state: %v", u.DiscordUserID, err)
+			return
 		}
-
-		var name string
-		if targetMember.Nick == "" {
-			name = targetMember.User.Username
-		} else {
-			name = targetMember.Nick
-		}
-
-		s.ChannelMessageSendReply(
-			m.ChannelID,
-			u.NewElo.GenerateEloString(name),
-			m.Reference())
 	} else {
 		s.ChannelMessageSendReply(
 			m.ChannelID,
@@ -248,4 +216,20 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 			m.Reference())
 		log.Printf("error getting info: %v\n", fmt.Errorf("invalid input for info: %s", m.Content))
 	}
+
+	if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
+		eloInfoError()
+		log.Printf("error updating member elo: %v\n", err)
+		return
+	}
+
+	if err := (*user)(u).updateMemberEloRoles(s, m.GuildID); err != nil {
+		log.Printf("error getting member elo: %v", err)
+		return
+	}
+
+	s.ChannelMessageSendReply(
+		m.ChannelID,
+		(*user)(u).EloString(targetMember),
+		m.Reference())
 }

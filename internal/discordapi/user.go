@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/alexisgeoffrey/aoe4api"
@@ -43,15 +44,15 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 
 func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error) {
 	eloAndTs := []struct {
-		currentElo *int32
-		newElo     *int32
+		newElo     *int16
+		currentElo int16
 		teamSize   aoe4api.TeamSize
 	}{
-		{&u.CurrentElo.OneVOne, &u.NewElo.OneVOne, aoe4api.OneVOne},
-		{&u.CurrentElo.TwoVTwo, &u.NewElo.TwoVTwo, aoe4api.TwoVTwo},
-		{&u.CurrentElo.ThreeVThree, &u.NewElo.ThreeVThree, aoe4api.ThreeVThree},
-		{&u.CurrentElo.FourVFour, &u.NewElo.FourVFour, aoe4api.FourVFour},
-		{&u.CurrentElo.Custom, &u.NewElo.Custom, 5},
+		{&u.NewElo.OneVOne, u.CurrentElo.OneVOne, aoe4api.OneVOne},
+		{&u.NewElo.TwoVTwo, u.CurrentElo.TwoVTwo, aoe4api.TwoVTwo},
+		{&u.NewElo.ThreeVThree, u.CurrentElo.ThreeVThree, aoe4api.ThreeVThree},
+		{&u.NewElo.FourVFour, u.CurrentElo.FourVFour, aoe4api.FourVFour},
+		{&u.NewElo.Custom, u.CurrentElo.Custom, 5},
 	}
 
 	builder := aoe4api.NewRequestBuilder().
@@ -83,12 +84,12 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 			defer wg.Done()
 			memberElo, err := req.QueryElo(u.Aoe4Id)
 			if err != nil {
-				*eloAndTs[i].newElo = *eloAndTs[i].currentElo
+				*eloAndTs[i].newElo = eloAndTs[i].currentElo
 				// log.Printf("no response from api for %s for elo %s", u.Aoe4Username, [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"}[i])
 				return
 			}
 
-			*eloAndTs[i].newElo = int32(memberElo)
+			*eloAndTs[i].newElo = int16(memberElo)
 		}(i)
 	}
 	wg.Wait()
@@ -125,7 +126,7 @@ func (u *user) updateMemberEloRoles(s *discordgo.Session, guildId string) error 
 eloTypeLoop:
 	for _, eloType := range config.Cfg.EloTypes {
 		var currentRoleId string
-		var currentRolePriority int32 = 9999
+		var currentRolePriority int16 = 9999
 		for _, currentRole := range member.Roles {
 			if rolePriority, ok := eloType.RoleMap[currentRole]; ok {
 				currentRoleId = currentRole
@@ -168,21 +169,18 @@ eloTypeLoop:
 	return nil
 }
 
-func (u *user) getHighestElo() (highestElo int32) {
-	oldNewElo := []struct {
-		oldElo int32
-		newElo int32
-	}{
-		{u.CurrentElo.OneVOne, u.NewElo.OneVOne},
-		{u.CurrentElo.TwoVTwo, u.NewElo.TwoVTwo},
-		{u.CurrentElo.ThreeVThree, u.NewElo.ThreeVThree},
-		{u.CurrentElo.FourVFour, u.NewElo.FourVFour},
-		{u.CurrentElo.Custom, u.NewElo.Custom},
+func (u *user) getHighestElo() (highestElo int16) {
+	eloVals := []int16{
+		u.NewElo.OneVOne,
+		u.NewElo.TwoVTwo,
+		u.NewElo.ThreeVThree,
+		u.NewElo.FourVFour,
+		u.NewElo.Custom,
 	}
 
-	for _, elo := range oldNewElo {
-		if elo.newElo > highestElo {
-			highestElo = elo.newElo
+	for _, elo := range eloVals {
+		if elo > highestElo {
+			highestElo = elo
 		}
 	}
 
@@ -205,4 +203,36 @@ func changeMemberEloRole(s *discordgo.Session, m *discordgo.Member, currentRoleI
 	}
 
 	return nil
+}
+
+func (u *user) EloString(m *discordgo.Member) string {
+	builder := strings.Builder{}
+
+	var name string
+	if m.Nick != "" {
+		name = m.Nick
+	} else {
+		name = m.User.Username
+	}
+	builder.WriteString(fmt.Sprintf("%s:\n", name))
+
+	eloVals := []int16{
+		u.NewElo.OneVOne,
+		u.NewElo.TwoVTwo,
+		u.NewElo.ThreeVThree,
+		u.NewElo.FourVFour,
+		u.NewElo.Custom,
+	}
+
+	for i, label := range [...]string{"1v1", "2v2", "3v3", "4v4", "Custom"} {
+		if config.Cfg.EloTypes[i].Enabled {
+			if eloVals[i] == 0 {
+				builder.WriteString(fmt.Sprintf("%s: None\n", label))
+			} else {
+				builder.WriteString(fmt.Sprintf("%s: %d\n", label, eloVals[i]))
+			}
+		}
+	}
+
+	return builder.String()
 }

@@ -14,16 +14,16 @@ type User struct {
 	DiscordUserID string
 	Aoe4Username  string
 	Aoe4Id        string
-	CurrentElo    UserElo
-	NewElo        UserElo
+	CurrentElo    userElo
+	NewElo        userElo
 }
 
-type UserElo struct {
-	OneVOne     int32
-	TwoVTwo     int32
-	ThreeVThree int32
-	FourVFour   int32
-	Custom      int32
+type userElo struct {
+	OneVOne     int16
+	TwoVTwo     int16
+	ThreeVThree int16
+	FourVFour   int16
+	Custom      int16
 }
 
 var Db *pgxpool.Pool
@@ -52,7 +52,7 @@ func init() {
 	}
 }
 
-func RegisterUser(username string, aoeId string, discordId string, guildId string) (err error) {
+func RegisterUser(username string, aoeId string, discordId string, guildId string) error {
 	updateUser, err := Db.Exec(context.Background(),
 		"update users set username = $1, aoe_id = $2 where discord_id = $3 and guild_id = $4",
 		username, aoeId, discordId, guildId)
@@ -67,10 +67,10 @@ func RegisterUser(username string, aoeId string, discordId string, guildId strin
 		}
 	}
 
-	return
+	return nil
 }
 
-func UpdateUserElo(discordId string, guildId string, elo UserElo) error {
+func UpdateUserElo(discordId string, guildId string, elo userElo) error {
 	updateUser, err := Db.Exec(context.Background(),
 		`update users set elo_1v1 = $1, elo_2v2 = $2, elo_3v3 = $3, elo_4v4 = $4, elo_custom = $5
 		 where discord_id = $6 and guild_id = $7`,
@@ -85,12 +85,11 @@ func UpdateUserElo(discordId string, guildId string, elo UserElo) error {
 	return nil
 }
 
-func GetUser(discordId string, guildId string) (*User, error) {
+func GetUser(discordId string, guildId string) (u *User, err error) {
 	row := Db.QueryRow(context.Background(), "select * from users where discord_id = $1 and guild_id = $2", discordId, guildId)
 
-	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
-	u := &User{}
-	if err := row.Scan(
+	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int2
+	if err = row.Scan(
 		&u.DiscordUserID,
 		&u.Aoe4Username,
 		nil,
@@ -103,9 +102,9 @@ func GetUser(discordId string, guildId string) (*User, error) {
 		return &User{}, err
 	}
 
-	u.pgToInt(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+	u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
 
-	return u, nil
+	return
 }
 
 func GetUsers(guildId string) (users []User, err error) {
@@ -116,8 +115,8 @@ func GetUsers(guildId string) (users []User, err error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int4
-		u := User{}
+		var u User
+		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int2
 		if err := rows.Scan(
 			&u.DiscordUserID,
 			&u.Aoe4Username,
@@ -131,7 +130,7 @@ func GetUsers(guildId string) (users []User, err error) {
 			return nil, err
 		}
 
-		u.pgToInt(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+		u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
 
 		users = append(users, u)
 	}
@@ -139,12 +138,12 @@ func GetUsers(guildId string) (users []User, err error) {
 	return
 }
 
-func (u *User) pgToInt(
-	oneVOne pgtype.Int4,
-	twoVTwo pgtype.Int4,
-	threeVThree pgtype.Int4,
-	fourVFour pgtype.Int4,
-	custom pgtype.Int4,
+func (u *User) pgToCurrentElo(
+	oneVOne pgtype.Int2,
+	twoVTwo pgtype.Int2,
+	threeVThree pgtype.Int2,
+	fourVFour pgtype.Int2,
+	custom pgtype.Int2,
 ) {
 	if config.Cfg.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
 		u.CurrentElo.OneVOne = oneVOne.Int
