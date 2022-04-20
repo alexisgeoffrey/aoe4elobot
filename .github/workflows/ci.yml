@@ -14,7 +14,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-       - 
+      -
+        name: setup go
+        uses: actions/setup-go@v3.0.0
+      - 
+        name: checkout repo
+        uses: actions/checkout@v3.0.1
+      -
         name: Run golangci-lint
         uses: golangci/golangci-lint-action@v3.1.0
 
