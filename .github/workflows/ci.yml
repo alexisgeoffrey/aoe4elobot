@@ -11,12 +11,18 @@ on:
     types: [published]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+       - 
+        name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3.1.0
+        with:
+          working-directory: cmd/aoe4elobot
+
   build-push-image:
     runs-on: ubuntu-latest
     steps:
-      - 
-        name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v3.1.0
       -
         name: Docker meta
         id: meta
