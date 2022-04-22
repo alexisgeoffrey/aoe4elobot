@@ -30,7 +30,9 @@ func UpdateGuildElo(s *discordgo.Session, guildId string) error {
 		go func(i int) {
 			defer wg.Done()
 			user := (*user)(&users[i])
-			user.updateMemberElo(s, guildId)
+			if err := user.updateMemberElo(s, guildId); err != nil {
+				log.Println(err)
+			}
 		}(i)
 	}
 	wg.Wait()
@@ -149,7 +151,7 @@ eloTypeLoop:
 				}
 
 				if currentRolePriority > role.RolePriority {
-					s.ChannelMessageSend(
+					s.ChannelMessageSend( //nolint:errcheck
 						config.Cfg.BotChannelId,
 						fmt.Sprintf("Congrats %s, you are now in %s!",
 							member.Mention(),
