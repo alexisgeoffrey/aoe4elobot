@@ -41,11 +41,11 @@ func init() {
 		 username	text not null,
 		 guild_id	varchar(20),
 		 aoe_id		varchar(40) not null,
-		 elo_1v1	int,
-		 elo_2v2	int,
-		 elo_3v3	int,
-		 elo_4v4	int,
-		 elo_custom	int,
+		 elo_1v1	smallint,
+		 elo_2v2	smallint,
+		 elo_3v3	smallint,
+		 elo_4v4	smallint,
+		 elo_custom	smallint,
 		 primary key(discord_id, guild_id)
 		 )`); err != nil {
 		log.Fatalf("error setting up database: %v\n", err)
@@ -99,7 +99,7 @@ func GetUser(discordId string, guildId string) (u *User, err error) {
 		&threeVThree,
 		&fourVFour,
 		&custom); err != nil {
-		return &User{}, err
+		return nil, err
 	}
 
 	u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)

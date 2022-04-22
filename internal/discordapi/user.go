@@ -205,15 +205,9 @@ func changeMemberEloRole(s *discordgo.Session, m *discordgo.Member, currentRoleI
 	return nil
 }
 
-func (u *user) EloString(m *discordgo.Member) string {
-	builder := strings.Builder{}
+func (u *user) EloString(name string) string {
+	var builder strings.Builder
 
-	var name string
-	if m.Nick != "" {
-		name = m.Nick
-	} else {
-		name = m.User.Username
-	}
 	builder.WriteString(fmt.Sprintf("%s:\n", name))
 
 	eloVals := []int16{

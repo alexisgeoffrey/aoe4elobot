@@ -228,8 +228,15 @@ func getElo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage str
 		return
 	}
 
+	var name string
+	if targetMember.Nick != "" {
+		name = targetMember.Nick
+	} else {
+		name = targetMember.User.Username
+	}
+
 	s.ChannelMessageSendReply(
 		m.ChannelID,
-		(*user)(u).EloString(targetMember),
+		(*user)(u).EloString(name),
 		m.Reference())
 }
