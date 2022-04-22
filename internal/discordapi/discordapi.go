@@ -11,9 +11,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const (
-	usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
-)
+const usageString = "Usage:\n```\n!setEloInfo SteamUsername/XboxLiveUsername, STEAMID64/XboxLiveID\nAliases: !set, !link\n\n!updateElo\nAliases: !update, !u\n\n!eloInfo [@User]\nAliases: !info, !stats, !i, !s\n```\nFind STEAMID64 @ https://steamid.io/lookup"
 
 var cmdMutex sync.Mutex
 
@@ -43,14 +41,14 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		s.ChannelMessageSend(m.ChannelID, "Updating elo...")
+		s.ChannelMessageSend(m.ChannelID, "Updating elo...") //nolint:errcheck
 		if err := UpdateGuildElo(s, m.GuildID); err != nil {
-			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.")
+			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.") //nolint:errcheck
 			log.Printf("error updating elo: %v\n", err)
 			return
 		}
 
-		s.ChannelMessageSend(m.ChannelID, "Elo updated!")
+		s.ChannelMessageSend(m.ChannelID, "Elo updated!") //nolint:errcheck
 
 	case // !eloInfo
 		lowerTrimmedMessage == "!eloinfo",
@@ -67,19 +65,19 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cmdMutex.Lock()
 		defer cmdMutex.Unlock()
 
-		getEloInfo(s, m, dedupedMessage)
+		getElo(s, m, dedupedMessage)
 
 	case // !help
 		lowerTrimmedMessage == "!help",
 		lowerTrimmedMessage == "!h":
 
-		s.ChannelMessageSend(m.ChannelID, usageString)
+		s.ChannelMessageSend(m.ChannelID, usageString) //nolint:errcheck
 	}
 }
 
 func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage string) {
 	setEloInfoError := func() {
-		s.ChannelMessageSendReply(
+		s.ChannelMessageSendReply( //nolint:errcheck
 			m.ChannelID,
 			fmt.Sprint("Your AOE4 info failed to update.\n", usageString),
 			m.Reference())
@@ -99,7 +97,7 @@ func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 	} else {
 		targetMember, err := s.State.Member(m.GuildID, m.Author.ID)
 		if err != nil {
-			s.ChannelMessageSendReply(
+			s.ChannelMessageSendReply( //nolint:errcheck
 				m.ChannelID,
 				fmt.Sprint("Unable to retrieve Elo info.\n", usageString),
 				m.Reference())
@@ -116,7 +114,7 @@ func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 		}
 
 		if !isAdmin {
-			s.ChannelMessageSendReply(
+			s.ChannelMessageSendReply( //nolint:errcheck
 				m.ChannelID,
 				fmt.Sprint("Insufficient privileges to set Elo info for another user.\n", usageString),
 				m.Reference())
@@ -138,7 +136,7 @@ func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 	aoe4Username, aoe4Id := strings.TrimSpace(infoInput[0]), strings.TrimSpace(infoInput[1])
 
 	sendUpdateMessage := func(mention string) {
-		s.ChannelMessageSendReply(
+		s.ChannelMessageSendReply( //nolint:errcheck
 			m.ChannelID,
 			fmt.Sprintf("%s's AOE4 username has been updated to %s and ID has been updated to %s.",
 				mention,
@@ -164,19 +162,22 @@ func setEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 	}
 }
 
-func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage string) {
+func getElo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage string) {
 	eloInfoError := func() {
-		s.ChannelMessageSendReply(
+		s.ChannelMessageSendReply( //nolint:errcheck
 			m.ChannelID,
 			fmt.Sprint("Unable to retrieve Elo info.\n", usageString),
 			m.Reference())
 	}
 
 	input := strings.SplitN(dedupedMessage, " ", 2)
+	var err error
+	var u *db.User
+	var targetName string
 	if len(input) == 1 {
-		u, err := db.GetUser(m.Author.ID, m.GuildID)
+		u, err = db.GetUser(m.Author.ID, m.GuildID)
 		if err != nil {
-			s.ChannelMessageSendReply(
+			s.ChannelMessageSendReply( //nolint:errcheck
 				m.ChannelID,
 				fmt.Sprint("You are not registered.\n", usageString),
 				m.Reference())
@@ -184,23 +185,11 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 			return
 		}
 
-		if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
-			eloInfoError()
-			log.Printf("error updating member elo: %v\n", err)
-			return
-		}
-
-		var name string
 		if m.Member.Nick != "" {
-			name = m.Member.Nick
+			targetName = m.Member.Nick
 		} else {
-			name = m.Author.Username
+			targetName = m.Author.Username
 		}
-
-		s.ChannelMessageSendReply(
-			m.ChannelID,
-			u.NewElo.GenerateEloString(name),
-			m.Reference())
 	} else if len(input) == 2 {
 		if !strings.HasPrefix(input[1], "<@") {
 			eloInfoError()
@@ -210,7 +199,7 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 
 		u, err := db.GetUser(strings.Trim(input[1], "<@>"), m.GuildID)
 		if err != nil {
-			s.ChannelMessageSendReply(
+			s.ChannelMessageSendReply( //nolint:errcheck
 				m.ChannelID,
 				fmt.Sprint("User is not registered.\n", usageString),
 				m.Reference())
@@ -218,34 +207,37 @@ func getEloInfo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage
 			return
 		}
 
-		if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
-			eloInfoError()
-			log.Printf("error updating member elo: %v\n", err)
-			return
-		}
-
 		targetMember, err := s.State.Member(m.GuildID, u.DiscordUserID)
 		if err != nil {
 			eloInfoError()
 			log.Printf("error getting member %s from state: %v", u.DiscordUserID, err)
+			return
 		}
 
-		var name string
-		if targetMember.Nick == "" {
-			name = targetMember.User.Username
+		if targetMember.Nick != "" {
+			targetName = targetMember.Nick
 		} else {
-			name = targetMember.Nick
+			targetName = targetMember.User.Username
 		}
-
-		s.ChannelMessageSendReply(
-			m.ChannelID,
-			u.NewElo.GenerateEloString(name),
-			m.Reference())
 	} else {
-		s.ChannelMessageSendReply(
-			m.ChannelID,
-			fmt.Sprint("Unable to retrieve Elo info.\n", usageString),
-			m.Reference())
+		eloInfoError()
 		log.Printf("error getting info: %v\n", fmt.Errorf("invalid input for info: %s", m.Content))
+		return
 	}
+
+	if err := (*user)(u).updateMemberElo(s, m.GuildID); err != nil {
+		eloInfoError()
+		log.Printf("error updating member elo: %v\n", err)
+		return
+	}
+
+	if err := (*user)(u).updateMemberEloRoles(s, m.GuildID); err != nil {
+		log.Printf("error getting member elo: %v", err)
+		return
+	}
+
+	s.ChannelMessageSendReply( //nolint:errcheck
+		m.ChannelID,
+		(*user)(u).EloString(targetName),
+		m.Reference())
 }
