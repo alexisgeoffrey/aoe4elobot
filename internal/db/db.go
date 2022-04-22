@@ -85,11 +85,12 @@ func UpdateUserElo(discordId string, guildId string, elo userElo) error {
 	return nil
 }
 
-func GetUser(discordId string, guildId string) (u *User, err error) {
+func GetUser(discordId string, guildId string) (*User, error) {
 	row := Db.QueryRow(context.Background(), "select * from users where discord_id = $1 and guild_id = $2", discordId, guildId)
 
+	u := &User{}
 	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int2
-	if err = row.Scan(
+	if err := row.Scan(
 		&u.DiscordUserID,
 		&u.Aoe4Username,
 		nil,
@@ -104,7 +105,7 @@ func GetUser(discordId string, guildId string) (u *User, err error) {
 
 	u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
 
-	return
+	return u, nil
 }
 
 func GetUsers(guildId string) (users []User, err error) {
