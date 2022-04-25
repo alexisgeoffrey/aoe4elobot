@@ -197,7 +197,7 @@ func getElo(s *discordgo.Session, m *discordgo.MessageCreate, dedupedMessage str
 			return
 		}
 
-		u, err := db.GetUser(strings.Trim(input[1], "<@>"), m.GuildID)
+		u, err = db.GetUser(strings.Trim(input[1], "<@>"), m.GuildID)
 		if err != nil {
 			s.ChannelMessageSendReply( //nolint:errcheck
 				m.ChannelID,
