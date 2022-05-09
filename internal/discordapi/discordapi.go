@@ -42,6 +42,7 @@ func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		defer cmdMutex.Unlock()
 
 		s.ChannelMessageSend(m.ChannelID, "Updating elo...") //nolint:errcheck
+
 		if err := UpdateGuildElo(s, m.GuildID); err != nil {
 			s.ChannelMessageSend(m.ChannelID, "Elo failed to update.") //nolint:errcheck
 			log.Printf("error updating elo: %v\n", err)

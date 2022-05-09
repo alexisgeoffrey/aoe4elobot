@@ -89,21 +89,21 @@ func GetUser(discordId string, guildId string) (*User, error) {
 	row := Db.QueryRow(context.Background(), "select * from users where discord_id = $1 and guild_id = $2", discordId, guildId)
 
 	u := &User{}
-	var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int2
+	var pgElo [5]pgtype.Int2
 	if err := row.Scan(
 		&u.DiscordUserID,
 		&u.Aoe4Username,
 		nil,
 		&u.Aoe4Id,
-		&oneVOne,
-		&twoVTwo,
-		&threeVThree,
-		&fourVFour,
-		&custom); err != nil {
+		&pgElo[0],
+		&pgElo[1],
+		&pgElo[2],
+		&pgElo[3],
+		&pgElo[4]); err != nil {
 		return nil, err
 	}
 
-	u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+	u.pgToCurrentElo(pgElo)
 
 	return u, nil
 }
@@ -117,21 +117,21 @@ func GetUsers(guildId string) (users []User, err error) {
 
 	for rows.Next() {
 		var u User
-		var oneVOne, twoVTwo, threeVThree, fourVFour, custom pgtype.Int2
+		var pgElo [5]pgtype.Int2
 		if err := rows.Scan(
 			&u.DiscordUserID,
 			&u.Aoe4Username,
 			nil,
 			&u.Aoe4Id,
-			&oneVOne,
-			&twoVTwo,
-			&threeVThree,
-			&fourVFour,
-			&custom); err != nil {
+			&pgElo[0],
+			&pgElo[1],
+			&pgElo[2],
+			&pgElo[3],
+			&pgElo[4]); err != nil {
 			return nil, err
 		}
 
-		u.pgToCurrentElo(oneVOne, twoVTwo, threeVThree, fourVFour, custom)
+		u.pgToCurrentElo(pgElo)
 
 		users = append(users, u)
 	}
@@ -139,26 +139,21 @@ func GetUsers(guildId string) (users []User, err error) {
 	return
 }
 
-func (u *User) pgToCurrentElo(
-	oneVOne pgtype.Int2,
-	twoVTwo pgtype.Int2,
-	threeVThree pgtype.Int2,
-	fourVFour pgtype.Int2,
-	custom pgtype.Int2,
-) {
-	if config.Cfg.OneVOne.Enabled && oneVOne.Status == pgtype.Present {
-		u.CurrentElo.OneVOne = oneVOne.Int
+func (u *User) pgToCurrentElo(pgElo [5]pgtype.Int2) {
+	enabledAndCurrent := [...]struct {
+		enabled    bool
+		currentElo *int16
+	}{
+		{config.Cfg.OneVOne.Enabled, &u.CurrentElo.OneVOne},
+		{config.Cfg.TwoVTwo.Enabled, &u.CurrentElo.TwoVTwo},
+		{config.Cfg.ThreeVThree.Enabled, &u.CurrentElo.ThreeVThree},
+		{config.Cfg.FourVFour.Enabled, &u.CurrentElo.FourVFour},
+		{config.Cfg.Custom.Enabled, &u.CurrentElo.Custom},
 	}
-	if config.Cfg.TwoVTwo.Enabled && twoVTwo.Status == pgtype.Present {
-		u.CurrentElo.TwoVTwo = twoVTwo.Int
-	}
-	if config.Cfg.ThreeVThree.Enabled && threeVThree.Status == pgtype.Present {
-		u.CurrentElo.ThreeVThree = threeVThree.Int
-	}
-	if config.Cfg.FourVFour.Enabled && fourVFour.Status == pgtype.Present {
-		u.CurrentElo.FourVFour = fourVFour.Int
-	}
-	if config.Cfg.Custom.Enabled && custom.Status == pgtype.Present {
-		u.CurrentElo.Custom = custom.Int
+
+	for i, elo := range pgElo {
+		if enabledAndCurrent[i].enabled && elo.Status == pgtype.Present {
+			*enabledAndCurrent[i].currentElo = elo.Int
+		}
 	}
 }

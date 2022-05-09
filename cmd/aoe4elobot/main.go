@@ -29,15 +29,24 @@ func main() {
 		discordgo.IntentGuildPresences |
 		discordgo.IntentGuildMessages
 
-	dg.LogLevel = 2
-
 	// Open a websocket connection to Discord and begin listening.
 	if err := dg.Open(); err != nil {
 		log.Fatalf("error opening connection to Discord: %v\n", err)
 	}
 
 	c := cron.New()
-	if _, err = c.AddFunc("@midnight", func() { eloUpdateCron(dg) }); err != nil {
+	if _, err = c.AddFunc("@midnight", func() {
+		log.Println("Running scheduled Elo update.")
+
+		for _, id := range getGuildIds(dg.State) {
+			if err := discordapi.UpdateGuildElo(dg, id); err != nil {
+				log.Printf("error updating elo on server %s: %v\n", id, err)
+				continue
+			}
+		}
+
+		log.Println("Scheduled Elo update complete.")
+	}); err != nil {
 		log.Fatalf("error adding cron job: %v\n", err)
 	}
 	c.Start()
@@ -53,4 +62,15 @@ func main() {
 	c.Stop()
 	dg.Close()
 	db.Db.Close()
+}
+
+func getGuildIds(st *discordgo.State) []string {
+	st.RLock()
+	defer st.RUnlock()
+
+	guildIds := make([]string, len(st.Guilds))
+	for i, guild := range st.Guilds {
+		guildIds[i] = guild.ID
+	}
+	return guildIds
 }
