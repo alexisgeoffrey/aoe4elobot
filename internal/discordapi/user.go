@@ -165,7 +165,8 @@ eloTypeLoop:
 		if err := changeMemberEloRole(s, member, currentRoleId, ""); err != nil {
 			return fmt.Errorf("error removing member elo role from %s: %w", currentRoleId, err)
 		}
-		break // TODO
+		// TODO
+		break //nolint
 	}
 
 	return nil
