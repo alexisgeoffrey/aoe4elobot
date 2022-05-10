@@ -14,7 +14,7 @@ The simplest way to compile and run the bot is directly with the Go CLI. Make su
 
 First, clone the repo and navigate into its directory:
 ```bash
-$ git clone https://github.com/alexisgeoffrey/aoe4elobot.git
+$ git clone https://git.sr.ht/~alexisgeoffrey/aoe4elobot
 $ cd aoe4elobot
 ```
 Then, run the project, replacing the placeholders with their proper values:
