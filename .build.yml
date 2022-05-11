@@ -1,0 +1,39 @@
+image: alpine/latest
+packages:
+  - go
+  - docker
+sources:
+  - https://git.sr.ht/~alexisgeoffrey/aoe4elobot
+secrets:
+  - d05dda6f-c977-4651-a587-ef8efb458068
+tasks:
+  - build: |
+      cd aoe4elobot
+      go build -v ./...
+  - lint: |
+      wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s
+      cd aoe4elobot
+      ~/bin/golangci-lint -v run
+  - docker: |
+      cd aoe4elobot
+      if [ "$(git rev-parse main)" != "$(git rev-parse HEAD)" ]; then \
+        echo "Not on main branch, skipping docker stage"; \
+        complete-build; \
+      fi
+      sudo service docker restart
+      sleep 5
+      sudo docker build \
+        -t alexisgeoffrey/aoe4elobot:latest \
+        -t alexisgeoffrey/aoe4elobot:main \
+        -t alexisgeoffrey/aoe4elobot:sha-$(git rev-parse --short HEAD) \
+        -t ghcr.io/alexisgeoffrey/aoe4elobot:latest \
+        -t ghcr.io/alexisgeoffrey/aoe4elobot:main \
+        -t ghcr.io/alexisgeoffrey/aoe4elobot:sha-$(git rev-parse --short HEAD) .
+      set +x // Hide docker login
+      source ~/.repo_creds
+      sudo docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN >/dev/null 2>&1
+      sudo docker login ghcr.io -u $GITHUB_USER -p $GITHUB_TOKEN >/dev/null 2>&1
+      set -x
+      sudo docker push --all-tags alexisgeoffrey/aoe4elobot
+      sudo docker push --all-tags ghcr.io/alexisgeoffrey/aoe4elobot
+
