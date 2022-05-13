@@ -5,7 +5,7 @@
 
 A Discord bot that automatically retrieves Elo ratings for Age of Empires 4 and gives users custom roles.
 
-Uses the public API for the [Age of Empires Leaderboards](https://www.ageofempires.com/stats/ageiv/) via my [aoe4api](https://github.com/alexisgeoffrey/aoe4api) library.
+Uses the public API for the [Age of Empires Leaderboards](https://www.ageofempires.com/stats/ageiv/) via my [aoe4api](https://git.sr.ht/~alexisgeoffrey/aoe4api) library.
 
 ## Build Instructions
 Before using the AOE 4 Elo Bot backend, a Discord application and bot must be set up and added to a Discord server [here](https://discord.com/developers/applications).
