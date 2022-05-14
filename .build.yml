@@ -17,7 +17,9 @@ tasks:
   - docker: |
       cd aoe4elobot
       if [ "$(git rev-parse main)" != "$(git rev-parse HEAD)" ]; then \
+        set +x
         echo "Not on main branch, skipping docker stage"; \
+        set -x
         complete-build; \
       fi
       sudo service docker restart
