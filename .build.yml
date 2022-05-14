@@ -2,8 +2,6 @@ image: alpine/latest
 packages:
   - go
   - docker
-sources:
-  - https://git.sr.ht/~alexisgeoffrey/aoe4elobot
 secrets:
   - d05dda6f-c977-4651-a587-ef8efb458068
 tasks:
