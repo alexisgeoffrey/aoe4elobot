@@ -54,7 +54,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 		{&u.NewElo.TwoVTwo, u.CurrentElo.TwoVTwo, aoe4api.TwoVTwo},
 		{&u.NewElo.ThreeVThree, u.CurrentElo.ThreeVThree, aoe4api.ThreeVThree},
 		{&u.NewElo.FourVFour, u.CurrentElo.FourVFour, aoe4api.FourVFour},
-		{&u.NewElo.Custom, u.CurrentElo.Custom, 5},
+		{&u.NewElo.Custom, u.CurrentElo.Custom, ""},
 	}
 
 	builder := aoe4api.NewRequestBuilder().
@@ -68,7 +68,7 @@ func (u *user) updateMemberElo(s *discordgo.Session, guildId string) (err error)
 		}
 
 		var req aoe4api.Request
-		if eloAndTs[i].teamSize == 5 {
+		if eloAndTs[i].teamSize == "" {
 			req, err = builder.
 				SetMatchType(aoe4api.Custom).
 				Request()
