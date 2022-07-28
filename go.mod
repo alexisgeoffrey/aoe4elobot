@@ -3,7 +3,7 @@ module github.com/alexisgeoffrey/aoe4elobot/v2
 go 1.18
 
 require (
-	github.com/alexisgeoffrey/aoe4api v0.4.0
+	github.com/alexisgeoffrey/aoe4api v0.4.1
 	github.com/bwmarrin/discordgo v0.25.0
 	github.com/ilyakaznacheev/cleanenv v1.2.6
 	github.com/jackc/pgtype v1.11.0
