@@ -3,7 +3,7 @@ packages:
   - go
   - docker
 secrets:
-  - d05dda6f-c977-4651-a587-ef8efb458068
+  - 6343f964-cca3-47ca-afaf-7ac8a39ce72c
 tasks:
   - build: |
       cd aoe4elobot
