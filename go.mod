@@ -5,11 +5,11 @@ go 1.18
 require (
 	github.com/alexisgeoffrey/aoe4api v0.4.1
 	github.com/bwmarrin/discordgo v0.25.0
-	github.com/ilyakaznacheev/cleanenv v1.2.6
+	github.com/ilyakaznacheev/cleanenv v1.3.1
 	github.com/jackc/pgtype v1.11.0
 	github.com/jackc/pgx/v4 v4.16.1
 	github.com/robfig/cron/v3 v3.0.1
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
